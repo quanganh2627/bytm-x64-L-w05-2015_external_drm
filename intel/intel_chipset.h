@@ -49,6 +49,7 @@
 #define PCI_CHIP_HASWELL_GT1            0x0402 /* Desktop */
 #define PCI_CHIP_HASWELL_GT2            0x0412
 #define PCI_CHIP_HASWELL_GT2_PLUS       0x0422
+#define PCI_CHIP_HASWELL_SDV            0x0c22
 #define PCI_CHIP_HASWELL_M_GT1          0x0406 /* Mobile */
 #define PCI_CHIP_HASWELL_M_GT2          0x0416
 #define PCI_CHIP_HASWELL_M_GT2_PLUS     0x0426
@@ -176,6 +177,7 @@
 				 devid == PCI_CHIP_HASWELL_CRW_M_GT1 || \
 				 devid == PCI_CHIP_HASWELL_CRW_S_GT1)
 #define IS_HSW_GT2(devid)       (devid == PCI_CHIP_HASWELL_GT2 || \
+                                 devid == PCI_CHIP_HASWELL_SDV || \
                                  devid == PCI_CHIP_HASWELL_M_GT2 || \
 				 devid == PCI_CHIP_HASWELL_S_GT2 || \
 				 devid == PCI_CHIP_HASWELL_SDV_GT2 || \
