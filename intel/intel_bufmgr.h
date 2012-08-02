@@ -84,6 +84,8 @@ struct _drm_intel_bo {
 	 * MM-specific handle for accessing object
 	 */
 	int handle;
+
+	int usesRS;
 };
 
 enum aub_dump_bmp_format {
