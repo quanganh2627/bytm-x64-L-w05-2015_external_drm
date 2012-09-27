@@ -85,6 +85,10 @@
 #define PCI_CHIP_HASWELL_CRW_S_GT2      0x0D2A
 #define PCI_CHIP_HASWELL_CRW_S_GT2_PLUS 0x0D3A
 
+#define PCI_CHIP_VALLEYVIEW_M0          0x0F30
+#define PCI_CHIP_VALLEYVIEW_M           0x0157
+#define PCI_CHIP_VALLEYVIEW_D           0x0155
+
 #define IS_830(dev) (dev == 0x3577)
 #define IS_845(dev) (dev == 0x2562)
 #define IS_85X(dev) (dev == 0x3582)
@@ -156,7 +160,8 @@
 			 dev == PCI_CHIP_SANDYBRIDGE_S)
 
 #define IS_GEN7(devid)          (IS_IVYBRIDGE(devid) || \
-                                 IS_HASWELL(devid))
+                                 IS_HASWELL(devid) ||   \
+                                 IS_VALLEYVIEW(devid))
 
 #define IS_IVYBRIDGE(dev)	(dev == PCI_CHIP_IVYBRIDGE_GT1 || \
 				 dev == PCI_CHIP_IVYBRIDGE_GT2 || \
@@ -208,6 +213,10 @@
 #define IS_HASWELL(devid)       (IS_HSW_GT1(devid) || \
                                  IS_HSW_GT2(devid) || \
                                  IS_HSW_GT3(devid))
+
+#define IS_VALLEYVIEW(devid)    (devid == PCI_CHIP_VALLEYVIEW_M0 || \
+		                         devid == PCI_CHIP_VALLEYVIEW_M  || \
+		                         devid == PCI_CHIP_VALLEYVIEW_D )
 
 #define IS_G4X(dev) (dev == 0x2E02 || \
                      dev == 0x2E12 || \
