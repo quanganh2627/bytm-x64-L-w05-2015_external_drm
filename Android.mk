@@ -22,6 +22,9 @@
 #
 
 LOCAL_PATH := $(call my-dir)
+
+ifeq ($(ENABLE_GEN_GRAPHICS),true)
+
 include $(CLEAR_VARS)
 
 LIBDRM_TOP := $(LOCAL_PATH)
@@ -53,4 +56,5 @@ LOCAL_COPY_HEADERS_TO := libdrm
 include $(BUILD_SHARED_LIBRARY)
 
 include $(LOCAL_PATH)/intel/Android.mk
+endif
 
