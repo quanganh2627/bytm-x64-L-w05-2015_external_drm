@@ -40,6 +40,19 @@
 				 * of chars for next/prev indices */
 #define I915_LOG_MIN_TEX_REGION_SIZE 14
 
+#define PASASBCA	0
+#define PASBSACA	8
+#define SBPASACA        1
+#define SBSAPACA        9
+#define SAPASBCA        4
+#define SASBPACA        6
+#define PBSCSDCB        (1 << 31) | 0
+#define PBSDSCCB        (1 << 31) | 8
+#define SDPBSCCB        (1 << 31) | 1
+#define SDSCPBCB        (1 << 31) | 9
+#define SCPBSDCB        (1 << 31) | 4
+#define SCSDPBCB        (1 << 31) | 6
+
 typedef struct _drm_i915_init {
 	enum {
 		I915_INIT_DMA = 0x01,
@@ -198,6 +211,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GEM_SET_CACHEING	0x2f
 #define DRM_I915_GEM_GET_CACHEING	0x30
 #define DRM_I915_REG_READ		0x31
+#define DRM_I915_SET_PLANE_ZORDER	0x32
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -247,6 +261,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_GEM_CONTEXT_CREATE	DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GEM_CONTEXT_CREATE, struct drm_i915_gem_context_create)
 #define DRM_IOCTL_I915_GEM_CONTEXT_DESTROY	DRM_IOW (DRM_COMMAND_BASE + DRM_I915_GEM_CONTEXT_DESTROY, struct drm_i915_gem_context_destroy)
 #define DRM_IOCTL_I915_REG_READ			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_REG_READ, struct drm_i915_reg_read)
+#define DRM_IOCTL_I915_SET_PLANE_ZORDER		\
+	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_ZORDER, \
+	struct drm_i915_set_plane_zorder)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -941,5 +958,8 @@ struct drm_i915_gem_context_destroy {
 struct drm_i915_reg_read {
 	__u64 offset;
 	__u64 val; /* Return value */
+};
+struct drm_i915_set_plane_zorder {
+	 __u32 order;
 };
 #endif				/* _I915_DRM_H_ */
