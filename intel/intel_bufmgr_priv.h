@@ -1,5 +1,5 @@
 /*
- * Copyright © 2008 Intel Corporation
+ * Copyright 2008 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -283,6 +283,22 @@ struct _drm_intel_bufmgr {
 
 	/** Returns true if target_bo is in the relocation tree rooted at bo. */
 	int (*bo_references) (drm_intel_bo *bo, drm_intel_bo *target_bo);
+
+	/**
+	 * Sets an object's datatype
+	 *
+	 * \param bo Buffer whose datatype will be set
+	 * \param datatype Value of new datatype
+	 */
+	int (*bo_set_datatype) (drm_intel_bo *bo, uint32_t datatype);
+
+	/**
+	 * Gets an object's current datatype.
+	 *
+	 * \param bo Buffer from which datatype will be retrieved
+	 * \param datatype Pointer to uint32_t receiving datatype
+	 */
+	int (*bo_get_datatype) (drm_intel_bo *bo, uint32_t *datatype);
 
 	/**< Enables verbose debugging printouts */
 	int debug;

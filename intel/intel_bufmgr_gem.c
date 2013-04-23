@@ -1,7 +1,7 @@
 /**************************************************************************
  *
- * Copyright © 2007 Red Hat Inc.
- * Copyright © 2007-2012 Intel Corporation
+ * Copyright 2007 Red Hat Inc.
+ * Copyright 2007-2012 Intel Corporation
  * Copyright 2006 Tungsten Graphics, Inc., Bismarck, ND., USA
  * All Rights Reserved.
  *
@@ -28,7 +28,7 @@
  *
  **************************************************************************/
 /*
- * Authors: Thomas Hellström <thomas-at-tungstengraphics-dot-com>
+ * Authors: Thomas Hellstrom <thomas-at-tungstengraphics-dot-com>
  *          Keith Whitwell <keithw-at-tungstengraphics-dot-com>
  *	    Eric Anholt <eric@anholt.net>
  *	    Dave Airlie <airlied@linux.ie>
@@ -225,6 +225,11 @@ struct _drm_intel_bo_gem {
 
 	drm_intel_aub_annotation *aub_annotations;
 	unsigned aub_annotation_count;
+
+	/**
+	 * For storing object datatype, if required
+	 */
+	uint32_t datatype;
 };
 
 static unsigned int
@@ -2470,6 +2475,24 @@ drm_intel_gem_bo_get_tiling(drm_intel_bo *bo, uint32_t * tiling_mode,
 	return 0;
 }
 
+static int
+drm_intel_gem_bo_set_datatype(drm_intel_bo *bo, uint32_t datatype)
+{
+	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+
+	bo_gem->datatype = datatype;
+	return 0;
+}
+
+static int
+drm_intel_gem_bo_get_datatype(drm_intel_bo *bo, uint32_t *datatype, int refresh)
+{
+	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+
+	*datatype = bo_gem->datatype;
+	return 0;
+}
+
 drm_intel_bo *
 drm_intel_bo_gem_create_from_prime(drm_intel_bufmgr *bufmgr, int prime_fd, int size)
 {
@@ -3246,6 +3269,8 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 	bufmgr_gem->bufmgr.bo_unpin = drm_intel_gem_bo_unpin;
 	bufmgr_gem->bufmgr.bo_get_tiling = drm_intel_gem_bo_get_tiling;
 	bufmgr_gem->bufmgr.bo_set_tiling = drm_intel_gem_bo_set_tiling;
+	bufmgr_gem->bufmgr.bo_get_datatype = drm_intel_gem_bo_get_datatype;
+	bufmgr_gem->bufmgr.bo_set_datatype = drm_intel_gem_bo_set_datatype;
 	bufmgr_gem->bufmgr.bo_flink = drm_intel_gem_bo_flink;
 	bufmgr_gem->bufmgr.bo_prime = drm_intel_gem_bo_prime;
 	/* Use the new one if available */

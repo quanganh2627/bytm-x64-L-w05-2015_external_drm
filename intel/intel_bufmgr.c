@@ -238,6 +238,23 @@ int drm_intel_bo_get_tiling(drm_intel_bo *bo, uint32_t * tiling_mode,
 	return 0;
 }
 
+int drm_intel_bo_set_datatype(drm_intel_bo *bo, uint32_t datatype)
+{
+	if (bo->bufmgr->bo_set_datatype)
+		return bo->bufmgr->bo_set_datatype(bo, datatype);
+
+	return 0;
+}
+
+int drm_intel_bo_get_datatype(drm_intel_bo *bo, uint32_t *datatype)
+{
+	if (bo->bufmgr->bo_get_datatype)
+		return bo->bufmgr->bo_get_datatype(bo, datatype);
+
+	*datatype = 0;
+	return 0;
+}
+
 int drm_intel_bo_disable_reuse(drm_intel_bo *bo)
 {
 	if (bo->bufmgr->bo_disable_reuse)
