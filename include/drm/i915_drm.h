@@ -40,6 +40,13 @@
 				 * of chars for next/prev indices */
 #define I915_LOG_MIN_TEX_REGION_SIZE 14
 
+#define PLANE_A		1
+#define SPRITE_A	2
+#define SPRITE_B	3
+
+#define PLANE_B		4
+#define SPRITE_C	5
+#define SPRITE_D	6
 typedef struct _drm_i915_init {
 	enum {
 		I915_INIT_DMA = 0x01,
@@ -199,6 +206,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GEM_GET_CACHEING	0x30
 #define DRM_I915_REG_READ		0x31
 #define DRM_I915_GET_RESET_STATS	0x32
+#define DRM_I915_RESERVED_REG_BIT_2	0x37
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -249,6 +257,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_GEM_CONTEXT_DESTROY	DRM_IOW (DRM_COMMAND_BASE + DRM_I915_GEM_CONTEXT_DESTROY, struct drm_i915_gem_context_destroy)
 #define DRM_IOCTL_I915_REG_READ			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_REG_READ, struct drm_i915_reg_read)
 #define DRM_IOCTL_I915_GET_RESET_STATS		DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GET_RESET_STATS, struct drm_i915_reset_stats)
+#define DRM_IOCTL_I915_RESERVED_REG_BIT_2	\
+			DRM_IOW(DRM_COMMAND_BASE + DRM_I915_RESERVED_REG_BIT_2,\
+			struct drm_i915_reserved_reg_bit_2)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -963,4 +974,8 @@ struct drm_i915_reset_stats {
 	__u32 pad;
 };
 
+struct drm_i915_reserved_reg_bit_2 {
+	__u32 enable;
+	int plane;
+};
 #endif				/* _I915_DRM_H_ */
