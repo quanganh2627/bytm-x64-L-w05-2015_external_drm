@@ -53,6 +53,13 @@
 #define SCPBSDCB        (1 << 31) | 4
 #define SCSDPBCB        (1 << 31) | 6
 
+// Panel fitter scaling modes
+#define DRM_AUTOSCALE    0
+#define DRM_PILLARBOX    1
+#define DRM_LETTERBOX    2
+
+#define DRM_PFIT_PROP "pfit"
+
 typedef struct _drm_i915_init {
 	enum {
 		I915_INIT_DMA = 0x01,
