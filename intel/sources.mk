@@ -27,4 +27,5 @@ LIBDRM_INTEL_SOURCES := \
 	intel_bufmgr_fake.c \
 	intel_bufmgr_gem.c \
 	intel_decode.c \
+	intel_psr.c  \
 	mm.c

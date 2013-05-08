@@ -51,6 +51,7 @@ LOCAL_COPY_HEADERS :=            \
 	include/drm/drm_sarea.h  \
 	include/drm/i915_drm.h   \
 	intel/intel_bufmgr.h     \
+	intel/intel_psr.h	\
 
 LOCAL_COPY_HEADERS_TO := libdrm
 include $(BUILD_SHARED_LIBRARY)
