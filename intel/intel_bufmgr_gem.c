@@ -175,6 +175,8 @@ struct _drm_intel_bo_gem {
 	void *mem_virtual;
 	/** GTT virtual address for the buffer, saved across map/unmap cycles */
 	void *gtt_virtual;
+	/** Virtual address of the buffer allocated by user, used for vmap objects only*/
+	void *user_virtual;
 	int map_count;
 	drmMMListHead vma_list;
 
@@ -203,6 +205,11 @@ struct _drm_intel_bo_gem {
 	 * Boolean of whether this buffer can be re-used
 	 */
 	bool reusable;
+
+    /**
+	 * Boolean of whether this buffer was allocated with vmap
+	 */
+	bool is_vmap;
 
 	/**
 	 * Size in bytes of this buffer and its relocation descendents.
@@ -828,6 +835,85 @@ drm_intel_gem_bo_alloc_tiled(drm_intel_bufmgr *bufmgr, const char *name,
 					       tiling, stride);
 }
 
+static drm_intel_bo *
+drm_intel_gem_bo_alloc_vmap(drm_intel_bufmgr *bufmgr,
+				const char *name,
+				void *addr,
+				uint32_t tiling_mode,
+				uint32_t stride,
+				unsigned long size,
+				unsigned long flags)
+{
+	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bufmgr;
+	drm_intel_bo_gem *bo_gem;
+	int ret;
+	struct drm_i915_gem_vmap vmap;
+
+	bo_gem = calloc(1, sizeof(*bo_gem));
+	if (!bo_gem)
+		return NULL;
+
+	bo_gem->bo.size = size;
+
+	VG_CLEAR(vmap);
+	vmap.user_ptr = (__u64)((uint32_t)addr);
+	vmap.user_size = size;
+	vmap.flags = flags;
+
+	ret = drmIoctl(bufmgr_gem->fd,
+				DRM_IOCTL_I915_GEM_VMAP,
+				&vmap);
+	bo_gem->gem_handle = vmap.handle;
+	bo_gem->bo.handle = bo_gem->gem_handle;
+	if (ret != 0) {
+		DBG("bo_create_vmap: ioctl failed with user ptr 0x%x, size 0x%lx, user flags 0x%lx \n",
+			(uint32_t)addr, size, flags);
+		free(bo_gem);
+		return NULL;
+	}
+	bo_gem->bo.bufmgr    = bufmgr;
+	bo_gem->is_vmap      = true;
+	bo_gem->bo.virtual   = addr;
+	/* Save the address provided by user */
+	bo_gem->user_virtual = addr;
+	bo_gem->tiling_mode  = I915_TILING_NONE;
+	bo_gem->swizzle_mode = I915_BIT_6_SWIZZLE_NONE;
+	bo_gem->stride       = 0;
+
+	DRMINITLISTHEAD(&bo_gem->name_list);
+	DRMINITLISTHEAD(&bo_gem->vma_list);
+
+	bo_gem->name = name;
+	atomic_set(&bo_gem->refcount, 1);
+	bo_gem->validate_index = -1;
+	bo_gem->reloc_tree_fences = 0;
+	bo_gem->used_as_reloc_target = false;
+	bo_gem->has_error = false;
+	bo_gem->reusable = false;
+
+	if (tiling_mode != I915_TILING_NONE) {
+		unsigned long pagesize_mask = getpagesize() - 1;
+		/* For the Tiled buffer, the user_ptr shall be page boundary aligned*/
+		if (((uint32_t)addr) & pagesize_mask) {
+			free(bo_gem);
+			return NULL;
+		}
+		ret = drm_intel_gem_bo_set_tiling_internal(&bo_gem->bo, tiling_mode, stride);
+		if (ret != 0) {
+			DBG("bo_set_tiling_internal: ioctl failed with user ptr 0x%x, tiling_mode %d, stride 0x%x, size 0x%lx, user flags 0x%lx \n",
+				(uint32_t)addr, tiling_mode, stride, size, flags);
+			free(bo_gem);
+			return NULL;
+		}
+	}
+
+	drm_intel_bo_gem_set_in_aperture_size(bufmgr_gem, bo_gem);
+
+	DBG("bo_create_vmap: ptr 0x%x buf %d (%s) size %ldb, stride 0x%x, tile mode %d\n",
+			(uint32_t)addr, bo_gem->gem_handle, bo_gem->name, size, stride, tiling_mode);
+	return &bo_gem->bo;
+}
+
 /**
  * Returns a drm_intel_bo wrapping the given buffer prime fd name
  *
@@ -1001,11 +1087,14 @@ drm_intel_gem_bo_mark_mmaps_incoherent(drm_intel_bo *bo)
 #if HAVE_VALGRIND
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
 
-	if (bo_gem->mem_virtual)
-		VALGRIND_MAKE_MEM_NOACCESS(bo_gem->mem_virtual, bo->size);
+	if (!bo_gem->is_vmap) {
+		if (bo_gem->mem_virtual)
+			VALGRIND_MAKE_MEM_NOACCESS(bo_gem->mem_virtual, bo->size);
 
-	if (bo_gem->gtt_virtual)
-		VALGRIND_MAKE_MEM_NOACCESS(bo_gem->gtt_virtual, bo->size);
+		if (bo_gem->gtt_virtual)
+			VALGRIND_MAKE_MEM_NOACCESS(bo_gem->gtt_virtual, bo->size);
+	}
+
 #endif
 }
 
@@ -1194,6 +1283,12 @@ static int drm_intel_gem_bo_map(drm_intel_bo *bo, int write_enable)
 	struct drm_i915_gem_set_domain set_domain;
 	int ret;
 
+	if (bo_gem->is_vmap) {
+		/* Return the same user ptr */
+		bo->virtual = bo_gem->user_virtual;
+		return 0;
+	}
+
 	pthread_mutex_lock(&bufmgr_gem->lock);
 
 	if (bo_gem->map_count++ == 0)
@@ -1376,7 +1471,11 @@ int drm_intel_gem_bo_map_gtt(drm_intel_bo *bo)
 int drm_intel_gem_bo_map_unsynchronized(drm_intel_bo *bo)
 {
 	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
 	int ret;
+
+	if (bo_gem->is_vmap)
+		return -EINVAL;
 
 	/* If the CPU cache isn't coherent with the GTT, then use a
 	 * regular synchronized mapping.  The problem is that we don't
@@ -1397,12 +1496,17 @@ int drm_intel_gem_bo_map_unsynchronized(drm_intel_bo *bo)
 
 static int drm_intel_gem_bo_unmap(drm_intel_bo *bo)
 {
-	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+	drm_intel_bufmgr_gem *bufmgr_gem;
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
 	int ret = 0;
 
 	if (bo == NULL)
 		return 0;
+
+	if (bo_gem->is_vmap)
+		return 0;
+
+	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
 
 	pthread_mutex_lock(&bufmgr_gem->lock);
 
@@ -1447,9 +1551,54 @@ static int drm_intel_gem_bo_unmap(drm_intel_bo *bo)
 	return ret;
 }
 
+static
+int drm_intel_gem_bo_unmap_vmap_obj_gtt(drm_intel_bo *bo)
+{
+	drm_intel_bufmgr_gem *bufmgr_gem;
+	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+
+	if (bo == NULL)
+		return 0;
+
+	if (!bo_gem->is_vmap)
+		return -EINVAL;
+
+	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+
+	pthread_mutex_lock(&bufmgr_gem->lock);
+
+	if (bo_gem->map_count <= 0) {
+		DBG("attempted to unmap an unmapped bo\n");
+		pthread_mutex_unlock(&bufmgr_gem->lock);
+		/* Preserve the old behaviour of just treating this as a
+			* no-op rather than reporting the error.
+			*/
+		return 0;
+	}
+
+	if (--bo_gem->map_count == 0) {
+		drm_intel_gem_bo_close_vma(bufmgr_gem, bo_gem);
+		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
+		bo->virtual = NULL;
+	}
+	pthread_mutex_unlock(&bufmgr_gem->lock);
+
+	return 0;
+}
+
 int drm_intel_gem_bo_unmap_gtt(drm_intel_bo *bo)
 {
-	return drm_intel_gem_bo_unmap(bo);
+	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+	int ret = 0;
+
+	if (bo == NULL)
+		return 0;
+
+	if (bo_gem->is_vmap)
+		return drm_intel_gem_bo_unmap_vmap_obj_gtt(bo);
+	else
+		return drm_intel_gem_bo_unmap(bo);
 }
 
 static int
@@ -1460,6 +1609,9 @@ drm_intel_gem_bo_subdata(drm_intel_bo *bo, unsigned long offset,
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
 	struct drm_i915_gem_pwrite pwrite;
 	int ret;
+
+	if (bo_gem->is_vmap)
+		return -EINVAL;
 
 	VG_CLEAR(pwrite);
 	pwrite.handle = bo_gem->gem_handle;
@@ -1512,6 +1664,9 @@ drm_intel_gem_bo_get_subdata(drm_intel_bo *bo, unsigned long offset,
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
 	struct drm_i915_gem_pread pread;
 	int ret;
+
+	if (bo_gem->is_vmap)
+		return -EINVAL;
 
 	VG_CLEAR(pread);
 	pread.handle = bo_gem->gem_handle;
@@ -3202,6 +3357,13 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 	gp.param = I915_PARAM_HAS_RELAXED_FENCING;
 	ret = drmIoctl(bufmgr_gem->fd, DRM_IOCTL_I915_GETPARAM, &gp);
 	bufmgr_gem->has_relaxed_fencing = ret == 0;
+
+	gp.param = I915_PARAM_HAS_VMAP;
+	ret = drmIoctl(bufmgr_gem->fd, DRM_IOCTL_I915_GETPARAM, &gp);
+	if (ret)
+		fprintf(stderr, "NO VMAP IOCTL\n");
+	else
+		bufmgr_gem->bufmgr.bo_alloc_vmap = drm_intel_gem_bo_alloc_vmap;
 
 	gp.param = I915_PARAM_HAS_WAIT_TIMEOUT;
 	ret = drmIoctl(bufmgr_gem->fd, DRM_IOCTL_I915_GETPARAM, &gp);
