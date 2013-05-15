@@ -236,6 +236,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GEM_GET_CACHEING	0x30
 #define DRM_I915_REG_READ		0x31
 #define DRM_I915_RESERVED_REG_BIT_2	0x37
+#define DRM_I915_GEM_VMAP		0x38
 #define DRM_I915_SET_CSC                0x39
 #define DRM_I915_DPST_CONTEXT		0x3b
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
@@ -307,6 +308,9 @@ struct drm_i915_disp_screen_control {
 #define DRM_IOCTL_I915_RESERVED_REG_BIT_2	\
 			DRM_IOW(DRM_COMMAND_BASE + DRM_I915_RESERVED_REG_BIT_2,\
 			struct drm_i915_reserved_reg_bit_2)
+#define DRM_IOCTL_I915_GEM_VMAP		\
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_VMAP, \
+	struct drm_i915_gem_vmap)
 #define DRM_IOCTL_I915_SET_CSC  DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_SET_CSC, \
             struct csc_coeff)
 #define DRM_IOCTL_I915_GEM_ACCESS_USERDATA	\
@@ -374,6 +378,7 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_HAS_LLC     	 	 17
 #define I915_PARAM_HAS_ALIASING_PPGTT	 18
 #define I915_PARAM_HAS_WAIT_TIMEOUT	 19
+#define I915_PARAM_HAS_VMAP		 21
 #define I915_PARAM_HAS_VEBOX		 22
 #define I915_PARAM_DPST_ACTIVE		 23
 #define I915_PARAM_HAS_CMD_PARSER	 28
@@ -536,6 +541,20 @@ struct drm_i915_gem_mmap_gtt {
 	 * This is a fixed-size type for 32/64 compatibility.
 	 */
 	__u64 offset;
+};
+
+struct drm_i915_gem_vmap {
+	__u64 user_ptr;
+	__u32 user_size;
+	__u32 flags;
+#define I915_VMAP_READ_ONLY 0x1
+#define I915_USERPTR_UNSYNCHRONIZED 0x80000000
+	/**
+	* Returned handle for the object.
+	*
+	* Object handles are nonzero.
+	*/
+	__u32 handle;
 };
 
 struct drm_i915_gem_set_domain {

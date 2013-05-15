@@ -109,6 +109,9 @@ drm_intel_bo *drm_intel_bo_alloc_for_render(drm_intel_bufmgr *bufmgr,
 					    const char *name,
 					    unsigned long size,
 					    unsigned int alignment);
+drm_intel_bo *drm_intel_bo_alloc_vmap(drm_intel_bufmgr *bufmgr, const char *name,
+				      void *addr, uint32_t tiling_mode, uint32_t stride, unsigned long size,
+				      unsigned long flags);
 drm_intel_bo *drm_intel_bo_alloc_tiled(drm_intel_bufmgr *bufmgr,
 				       const char *name,
 				       int x, int y, int cpp,

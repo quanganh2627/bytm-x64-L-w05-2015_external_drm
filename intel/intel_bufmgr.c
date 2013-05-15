@@ -60,6 +60,18 @@ drm_intel_bo *drm_intel_bo_alloc_for_render(drm_intel_bufmgr *bufmgr,
 	return bufmgr->bo_alloc_for_render(bufmgr, name, size, alignment);
 }
 
+drm_intel_bo *drm_intel_bo_alloc_vmap(drm_intel_bufmgr *bufmgr,
+					  const char *name, void *addr,
+					  uint32_t tiling_mode,
+					  uint32_t stride,
+					  unsigned long size,
+					  unsigned long flags)
+{
+	if (bufmgr->bo_alloc_vmap)
+		return bufmgr->bo_alloc_vmap(bufmgr, name, addr, tiling_mode, stride, size, flags);
+	return NULL;
+}
+
 drm_intel_bo *
 drm_intel_bo_alloc_tiled(drm_intel_bufmgr *bufmgr, const char *name,
                         int x, int y, int cpp, uint32_t *tiling_mode,
