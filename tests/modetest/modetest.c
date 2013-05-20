@@ -111,6 +111,7 @@ struct type_name connector_type_names[] = {
 	{ DRM_MODE_CONNECTOR_HDMIB, "HDMI-B" },
 	{ DRM_MODE_CONNECTOR_TV, "TV" },
 	{ DRM_MODE_CONNECTOR_eDP, "embedded displayport" },
+    { DRM_MODE_CONNECTOR_MIPI, "MIPI" },
 };
 
 type_name_fn(connector_type)
