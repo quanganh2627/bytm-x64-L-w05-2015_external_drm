@@ -54,9 +54,10 @@
 #define SCSDPBCB        (1 << 31) | 6
 
 // Panel fitter scaling modes
-#define DRM_AUTOSCALE    0
-#define DRM_PILLARBOX    1
-#define DRM_LETTERBOX    2
+#define DRM_PFIT_OFF     0
+#define DRM_AUTOSCALE    1
+#define DRM_PILLARBOX    2
+#define DRM_LETTERBOX    3
 
 #define DRM_PFIT_PROP "pfit"
 
