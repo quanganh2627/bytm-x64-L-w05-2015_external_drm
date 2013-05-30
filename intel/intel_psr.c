@@ -34,3 +34,11 @@ void drmeDPpsrExit(int fd)
 {
 	drmIoctl(fd, DRM_IOCTL_I915_EDP_PSR_EXIT, NULL);
 }
+
+/* LibDRM Function to get Panel PSR Support */
+bool drmeDPgetPsrSupport(int fd)
+{
+	bool res = false;
+	drmIoctl(fd, DRM_IOCTL_I915_GET_PSR_SUPPORT, &res);
+	return res;
+}
