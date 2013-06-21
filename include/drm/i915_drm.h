@@ -54,9 +54,10 @@
 #define SCSDPBCB        (1 << 31) | 6
 
 // Panel fitter scaling modes
-#define DRM_AUTOSCALE    0
-#define DRM_PILLARBOX    1
-#define DRM_LETTERBOX    2
+#define DRM_PFIT_OFF     0
+#define DRM_AUTOSCALE    1
+#define DRM_PILLARBOX    2
+#define DRM_LETTERBOX    3
 
 #define DRM_PFIT_PROP "pfit"
 
@@ -248,9 +249,11 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_EDP_PSR_CTL            0x33
 #define DRM_I915_EDP_PSR_EXIT           0x34
 #define DRM_I915_DISP_SCREEN_CONTROL	0x35
+#define DRM_I915_SET_PLANE_180_ROTATION 0x36
 #define DRM_I915_RESERVED_REG_BIT_2	0x37
 #define DRM_I915_GEM_VMAP		0x38
 #define DRM_I915_SET_CSC                0x39
+#define DRM_I915_GET_PSR_SUPPORT	0x3a
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -310,6 +313,9 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_DISP_SCREEN_CONTROL                     \
         DRM_IOW(DRM_COMMAND_BASE + DRM_I915_DISP_SCREEN_CONTROL, \
         struct drm_i915_disp_screen_control)
+#define DRM_IOCTL_I915_SET_PLANE_180_ROTATION  \
+		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_180_ROTATION, \
+		 struct drm_i915_plane_180_rotation)
 #define DRM_IOCTL_I915_RESERVED_REG_BIT_2	\
 			DRM_IOW(DRM_COMMAND_BASE + DRM_I915_RESERVED_REG_BIT_2,\
 			struct drm_i915_reserved_reg_bit_2)
@@ -318,6 +324,8 @@ typedef struct _drm_i915_sarea {
 	struct drm_i915_gem_vmap)
 #define DRM_IOCTL_I915_SET_CSC  DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_SET_CSC, \
             struct CSC_Coeff)
+#define DRM_IOCTL_I915_GET_PSR_SUPPORT  DRM_IOR(DRM_COMMAND_BASE + \
+						DRM_I915_GET_PSR_SUPPORT, bool)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -1040,6 +1048,11 @@ struct drm_i915_set_plane_zorder {
 struct drm_i915_disp_screen_control {
 	__u32 on_off_cntrl;
 	__u32 crtc_id;
+};
+
+struct drm_i915_plane_180_rotation {
+	__u32 crtc_id;
+	__u32 rotate;
 };
 
 struct drm_i915_reserved_reg_bit_2 {
