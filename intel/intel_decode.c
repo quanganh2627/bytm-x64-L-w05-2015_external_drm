@@ -657,25 +657,25 @@ i915_get_instruction_dst(uint32_t *data, int i, char *dstname, int do_mask)
 	case 0:
 		if (dst_nr > 15)
 			fprintf(out, "bad destination reg R%d\n", dst_nr);
-		sprintf(dstname, "R%d%s%s", dst_nr, dstmask, sat);
+		snprintf(dstname, sizeof(dstname), "R%d%s%s", dst_nr, dstmask, sat);
 		break;
 	case 4:
 		if (dst_nr > 0)
 			fprintf(out, "bad destination reg oC%d\n", dst_nr);
-		sprintf(dstname, "oC%s%s", dstmask, sat);
+		snprintf(dstname, sizeof(dstname), "oC%s%s", dstmask, sat);
 		break;
 	case 5:
 		if (dst_nr > 0)
 			fprintf(out, "bad destination reg oD%d\n", dst_nr);
-		sprintf(dstname, "oD%s%s", dstmask, sat);
+		snprintf(dstname, sizeof(dstname), "oD%s%s", dstmask, sat);
 		break;
 	case 6:
 		if (dst_nr > 3)
 			fprintf(out, "bad destination reg U%d\n", dst_nr);
-		sprintf(dstname, "U%d%s%s", dst_nr, dstmask, sat);
+		snprintf(dstname, sizeof(dstname), "U%d%s%s", dst_nr, dstmask, sat);
 		break;
 	default:
-		sprintf(dstname, "RESERVED");
+		snprintf(dstname, sizeof(dstname), "RESERVED");
 		break;
 	}
 }
@@ -706,47 +706,47 @@ i915_get_instruction_src_name(uint32_t src_type, uint32_t src_nr, char *name)
 {
 	switch (src_type) {
 	case 0:
-		sprintf(name, "R%d", src_nr);
+		snprintf(name, sizeof(name), "R%d", src_nr);
 		if (src_nr > 15)
 			fprintf(out, "bad src reg %s\n", name);
 		break;
 	case 1:
 		if (src_nr < 8)
-			sprintf(name, "T%d", src_nr);
+			snprintf(name, sizeof(name), "T%d", src_nr);
 		else if (src_nr == 8)
-			sprintf(name, "DIFFUSE");
+			snprintf(name, sizeof(name), "DIFFUSE");
 		else if (src_nr == 9)
-			sprintf(name, "SPECULAR");
+			snprintf(name, sizeof(name), "SPECULAR");
 		else if (src_nr == 10)
-			sprintf(name, "FOG");
+			snprintf(name, sizeof(name), "FOG");
 		else {
 			fprintf(out, "bad src reg T%d\n", src_nr);
-			sprintf(name, "RESERVED");
+			snprintf(name, sizeof(name), "RESERVED");
 		}
 		break;
 	case 2:
-		sprintf(name, "C%d", src_nr);
+		snprintf(name, sizeof(name), "C%d", src_nr);
 		if (src_nr > 31)
 			fprintf(out, "bad src reg %s\n", name);
 		break;
 	case 4:
-		sprintf(name, "oC");
+		snprintf(name, sizeof(name), "oC");
 		if (src_nr > 0)
 			fprintf(out, "bad src reg oC%d\n", src_nr);
 		break;
 	case 5:
-		sprintf(name, "oD");
+		snprintf(name, sizeof(name), "oD");
 		if (src_nr > 0)
 			fprintf(out, "bad src reg oD%d\n", src_nr);
 		break;
 	case 6:
-		sprintf(name, "U%d", src_nr);
+		snprintf(name, sizeof(name), "U%d", src_nr);
 		if (src_nr > 3)
 			fprintf(out, "bad src reg %s\n", name);
 		break;
 	default:
 		fprintf(out, "bad src reg type %d\n", src_type);
-		sprintf(name, "RESERVED");
+		snprintf(name, sizeof(name), "RESERVED");
 		break;
 	}
 }
@@ -763,10 +763,10 @@ static void i915_get_instruction_src0(uint32_t *data, int i, char *srcname)
 	char swizzle[100];
 
 	i915_get_instruction_src_name((a0 >> 7) & 0x7, src_nr, srcname);
-	sprintf(swizzle, ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
+	snprintf(swizzle, sizeof(swizzle), ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
 		swizzle_w);
 	if (strcmp(swizzle, ".xyzw") != 0)
-		strcat(srcname, swizzle);
+		strncat(srcname, swizzle, sizeof(swizzle));
 }
 
 static void i915_get_instruction_src1(uint32_t *data, int i, char *srcname)
@@ -781,10 +781,10 @@ static void i915_get_instruction_src1(uint32_t *data, int i, char *srcname)
 	char swizzle[100];
 
 	i915_get_instruction_src_name((a1 >> 13) & 0x7, src_nr, srcname);
-	sprintf(swizzle, ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
+	snprintf(swizzle, sizeof(swizzle), ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
 		swizzle_w);
 	if (strcmp(swizzle, ".xyzw") != 0)
-		strcat(srcname, swizzle);
+		strncat(srcname, swizzle, sizeof(swizzle));
 }
 
 static void i915_get_instruction_src2(uint32_t *data, int i, char *srcname)
@@ -798,10 +798,10 @@ static void i915_get_instruction_src2(uint32_t *data, int i, char *srcname)
 	char swizzle[100];
 
 	i915_get_instruction_src_name((a2 >> 21) & 0x7, src_nr, srcname);
-	sprintf(swizzle, ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
+	snprintf(swizzle, sizeof(swizzle), ".%s%s%s%s", swizzle_x, swizzle_y, swizzle_z,
 		swizzle_w);
 	if (strcmp(swizzle, ".xyzw") != 0)
-		strcat(srcname, swizzle);
+		strncat(srcname, swizzle, sizeof(swizzle));
 }
 
 static void
@@ -809,37 +809,37 @@ i915_get_instruction_addr(uint32_t src_type, uint32_t src_nr, char *name)
 {
 	switch (src_type) {
 	case 0:
-		sprintf(name, "R%d", src_nr);
+		snprintf(name, sizeof(name), "R%d", src_nr);
 		if (src_nr > 15)
 			fprintf(out, "bad src reg %s\n", name);
 		break;
 	case 1:
 		if (src_nr < 8)
-			sprintf(name, "T%d", src_nr);
+			snprintf(name, sizeof(name), "T%d", src_nr);
 		else if (src_nr == 8)
-			sprintf(name, "DIFFUSE");
+			snprintf(name, sizeof(name), "DIFFUSE");
 		else if (src_nr == 9)
-			sprintf(name, "SPECULAR");
+			snprintf(name, sizeof(name), "SPECULAR");
 		else if (src_nr == 10)
-			sprintf(name, "FOG");
+			snprintf(name, sizeof(name), "FOG");
 		else {
 			fprintf(out, "bad src reg T%d\n", src_nr);
-			sprintf(name, "RESERVED");
+			snprintf(name, sizeof(name), "RESERVED");
 		}
 		break;
 	case 4:
-		sprintf(name, "oC");
+		snprintf(name, sizeof(name), "oC");
 		if (src_nr > 0)
 			fprintf(out, "bad src reg oC%d\n", src_nr);
 		break;
 	case 5:
-		sprintf(name, "oD");
+		snprintf(name, sizeof(name), "oD");
 		if (src_nr > 0)
 			fprintf(out, "bad src reg oD%d\n", src_nr);
 		break;
 	default:
 		fprintf(out, "bad src reg type %d\n", src_type);
-		sprintf(name, "RESERVED");
+		snprintf(name, sizeof(name), "RESERVED");
 		break;
 	}
 }
@@ -927,7 +927,7 @@ i915_decode_dcl(struct drm_intel_decode *ctx, int i, char *instr_prefix)
 
 	switch ((d0 >> 19) & 0x3) {
 	case 1:
-		sprintf(dcl_mask, ".%s%s%s%s", dcl_x, dcl_y, dcl_z, dcl_w);
+		snprintf(dcl_mask, sizeof(dcl_mask), ".%s%s%s%s", dcl_x, dcl_y, dcl_z, dcl_w);
 		if (strcmp(dcl_mask, ".") == 0)
 			fprintf(out, "bad (empty) dcl mask\n");
 
@@ -2014,7 +2014,7 @@ decode_3d_1d(struct drm_intel_decode *ctx)
 		for (instr = 0; instr < (len - 1) / 3; instr++) {
 			char instr_prefix[10];
 
-			sprintf(instr_prefix, "PS%03d", instr);
+			snprintf(instr_prefix, sizeof(instr_prefix), "PS%03d", instr);
 			i915_decode_instruction(ctx, i,
 						instr_prefix);
 			i += 3;
@@ -3893,12 +3893,13 @@ drm_intel_decode(struct drm_intel_decode *ctx)
 	int ret;
 	unsigned int index = 0;
 	uint32_t devid;
-	int size = ctx->base_count * 4;
+	int size;
 	void *temp;
 
 	if (!ctx)
 		return;
 
+	size = ctx->base_count * 4;
 	/* Put a scratch page full of obviously undefined data after
 	 * the batchbuffer.  This lets us avoid a bunch of length
 	 * checking in statically sized packets.

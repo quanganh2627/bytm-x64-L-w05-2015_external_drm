@@ -124,8 +124,11 @@ static int SLRandomLevel(void)
     SL_RANDOM_DECL;
 
     SL_RANDOM_INIT(SL_RANDOM_SEED);
-    
-    while ((SL_RANDOM & 0x01) && level < SL_MAX_LEVEL) ++level;
+    if (state) {
+	while ((SL_RANDOM & 0x01) && level < SL_MAX_LEVEL) 
+	    ++level;
+    }
+
     return level;
 }
 
@@ -140,9 +143,14 @@ void *drmSLCreate(void)
     list->level    = 0;
     list->head     = SLCreateEntry(SL_MAX_LEVEL, 0, NULL);
     list->count    = 0;
+    if (list->head) {
+	for (i = 0; i <= SL_MAX_LEVEL; i++) 
+	    list->head->forward[i] = NULL;
+    } else {
+	SL_FREE(list);
+	return NULL;
+    }
 
-    for (i = 0; i <= SL_MAX_LEVEL; i++) list->head->forward[i] = NULL;
-    
     return list;
 }
 
@@ -207,9 +215,13 @@ int drmSLInsert(void *l, unsigned long key, void *value)
     entry = SLCreateEntry(level, key, value);
 
 				/* Fix up forward pointers */
-    for (i = 0; i <= level; i++) {
-	entry->forward[i]     = update[i]->forward[i];
-	update[i]->forward[i] = entry;
+    if (entry) {
+	for (i = 0; i <= level; i++) {
+	    entry->forward[i]     = update[i]->forward[i];
+	    update[i]->forward[i] = entry;
+	}
+    } else {
+	return -1;
     }
 
     ++list->count;
@@ -264,7 +276,7 @@ int drmSLLookupNeighbors(void *l, unsigned long key,
 			 unsigned long *next_key, void **next_value)
 {
     SkipListPtr   list = (SkipListPtr)l;
-    SLEntryPtr    update[SL_MAX_LEVEL + 1];
+    SLEntryPtr    update[SL_MAX_LEVEL + 1] = {0};
     int           retcode = 0;
 
     *prev_key   = *next_key   = key;

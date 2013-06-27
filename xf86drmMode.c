@@ -697,7 +697,7 @@ int drmCheckModesettingSupported(const char *busid)
 	if (ret != 4)
 		return -EINVAL;
 
-	sprintf(pci_dev_dir, "/sys/bus/pci/devices/%04x:%02x:%02x.%d/drm",
+	snprintf(pci_dev_dir, sizeof(pci_dev_dir), "/sys/bus/pci/devices/%04x:%02x:%02x.%d/drm",
 		domain, bus, dev, func);
 
 	sysdir = opendir(pci_dev_dir);
@@ -716,7 +716,7 @@ int drmCheckModesettingSupported(const char *busid)
 			return 0;
 	}
 
-	sprintf(pci_dev_dir, "/sys/bus/pci/devices/%04x:%02x:%02x.%d/",
+	snprintf(pci_dev_dir, sizeof(pci_dev_dir), "/sys/bus/pci/devices/%04x:%02x:%02x.%d/",
 		domain, bus, dev, func);
 
 	sysdir = opendir(pci_dev_dir);
