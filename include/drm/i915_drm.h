@@ -254,7 +254,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_I915_GEM_VMAP		0x38
 #define DRM_I915_SET_CSC                0x39
 #define DRM_I915_GET_PSR_SUPPORT	0x3a
-#define DRM_I915_DPST_CONTEXT		0x3b
+#define DRM_I915_DPST_CONTEXT		0x3c
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
