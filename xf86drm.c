@@ -1105,7 +1105,7 @@ int drmClose(int fd)
     unsigned long key    = drmGetKeyFromFd(fd);
     drmHashEntry  *entry = drmGetEntry(fd);
 
-    if (entry) {
+    if (entry && entry->tagTable) {
 	drmHashDestroy(entry->tagTable);
 	entry->fd       = 0;
 	entry->f        = NULL;
@@ -2093,7 +2093,7 @@ int drmGetInterruptFromBusID(int fd, int busnum, int devnum, int funcnum)
 int drmAddContextTag(int fd, drm_context_t context, void *tag)
 {
     drmHashEntry  *entry = drmGetEntry(fd);
-    if (entry) {
+    if (entry && entry->tagTable) {
 	if (drmHashInsert(entry->tagTable, context, tag)) {
 	    drmHashDelete(entry->tagTable, context);
 	    drmHashInsert(entry->tagTable, context, tag);
@@ -2107,7 +2107,7 @@ int drmDelContextTag(int fd, drm_context_t context)
 {
     drmHashEntry  *entry = drmGetEntry(fd);
 
-    if (!entry)
+    if (!entry || !(entry->tagTable))
 	return -EINVAL;
 
     return drmHashDelete(entry->tagTable, context);
