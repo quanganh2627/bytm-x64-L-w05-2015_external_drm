@@ -182,8 +182,8 @@ static unsigned long drmGetKeyFromFd(int fd)
 drmHashEntry *drmGetEntry(int fd)
 {
     unsigned long key = drmGetKeyFromFd(fd);
-    void          *value;
-    drmHashEntry  *entry;
+    void          *value = NULL;
+    drmHashEntry  *entry = NULL;
 
     if (!drmHashTable)
 	drmHashTable = drmHashCreate();
@@ -193,10 +193,13 @@ drmHashEntry *drmGetEntry(int fd)
 	entry->fd       = fd;
 	entry->f        = NULL;
 	entry->tagTable = drmHashCreate();
-	drmHashInsert(drmHashTable, key, entry);
+	if (drmHashTable) {
+	    drmHashInsert(drmHashTable, key, entry);
+	}
     } else {
 	entry = value;
     }
+
     return entry;
 }
 
@@ -309,7 +312,7 @@ static int drmOpenDevice(long dev, int minor, int type)
     uid_t           user    = DRM_DEV_UID;
     gid_t           group   = DRM_DEV_GID, serv_group;
     
-    sprintf(buf, type ? DRM_DEV_NAME : DRM_CONTROL_DEV_NAME, DRM_DIR_NAME, minor);
+    snprintf(buf, sizeof(buf), type ? DRM_DEV_NAME : DRM_CONTROL_DEV_NAME, DRM_DIR_NAME, minor);
     drmMsg("drmOpenDevice: node name is %s\n", buf);
 
     if (drm_server_info) {
@@ -418,7 +421,7 @@ static int drmOpenMinor(int minor, int create, int type)
     if (create)
 	return drmOpenDevice(makedev(DRM_MAJOR, minor), minor, type);
     
-    sprintf(buf, type ? DRM_DEV_NAME : DRM_CONTROL_DEV_NAME, DRM_DIR_NAME, minor);
+    snprintf(buf, sizeof(buf), type ? DRM_DEV_NAME : DRM_CONTROL_DEV_NAME, DRM_DIR_NAME, minor);
     if ((fd = open(buf, O_RDWR, 0)) >= 0)
 	return fd;
     return -errno;
@@ -585,7 +588,7 @@ static int drmOpenByName(const char *name)
 	char *driver, *pt, *devstring;
 	int  retcode;
 	
-	sprintf(proc_name, "/proc/dri/%d/name", i);
+	snprintf(proc_name, sizeof(proc_name), "/proc/dri/%d/name", i);
 	if ((fd = open(proc_name, 0, 0)) >= 0) {
 	    retcode = read(fd, buf, sizeof(buf)-1);
 	    close(fd);
@@ -1102,13 +1105,14 @@ int drmClose(int fd)
     unsigned long key    = drmGetKeyFromFd(fd);
     drmHashEntry  *entry = drmGetEntry(fd);
 
-    drmHashDestroy(entry->tagTable);
-    entry->fd       = 0;
-    entry->f        = NULL;
-    entry->tagTable = NULL;
-
-    drmHashDelete(drmHashTable, key);
-    drmFree(entry);
+    if (entry) {
+	drmHashDestroy(entry->tagTable);
+	entry->fd       = 0;
+	entry->f        = NULL;
+	entry->tagTable = NULL;
+	drmHashDelete(drmHashTable, key);
+	drmFree(entry);
+    }
 
     return close(fd);
 }
@@ -2089,17 +2093,22 @@ int drmGetInterruptFromBusID(int fd, int busnum, int devnum, int funcnum)
 int drmAddContextTag(int fd, drm_context_t context, void *tag)
 {
     drmHashEntry  *entry = drmGetEntry(fd);
-
-    if (drmHashInsert(entry->tagTable, context, tag)) {
-	drmHashDelete(entry->tagTable, context);
-	drmHashInsert(entry->tagTable, context, tag);
+    if (entry) {
+	if (drmHashInsert(entry->tagTable, context, tag)) {
+	    drmHashDelete(entry->tagTable, context);
+	    drmHashInsert(entry->tagTable, context, tag);
+	}
     }
+
     return 0;
 }
 
 int drmDelContextTag(int fd, drm_context_t context)
 {
     drmHashEntry  *entry = drmGetEntry(fd);
+
+    if (!entry)
+	return -EINVAL;
 
     return drmHashDelete(entry->tagTable, context);
 }

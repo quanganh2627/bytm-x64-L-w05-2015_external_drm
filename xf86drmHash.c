@@ -137,8 +137,13 @@ static unsigned long HashHash(unsigned long key)
     if (!init) {
 	HASH_RANDOM_DECL;
 	HASH_RANDOM_INIT(37);
-	for (i = 0; i < 256; i++) scatter[i] = HASH_RANDOM;
-	HASH_RANDOM_DESTROY;
+	if (state) {
+	    for (i = 0; i < 256; i++) 
+		scatter[i] = HASH_RANDOM;
+
+	    HASH_RANDOM_DESTROY;
+	}
+
 	++init;
     }
 

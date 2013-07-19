@@ -556,8 +556,10 @@ evict_lru(drm_intel_bufmgr_fake *bufmgr_fake, unsigned int max_fence)
 							    max_fence))
 			return 0;
 
-		set_dirty(&bo_fake->bo);
-		bo_fake->block = NULL;
+		if (bo_fake) {
+			set_dirty(&bo_fake->bo);
+			bo_fake->block = NULL;
+		}
 
 		free_block(bufmgr_fake, block, 0);
 		return 1;
@@ -576,11 +578,13 @@ evict_mru(drm_intel_bufmgr_fake *bufmgr_fake)
 	DRMLISTFOREACHSAFEREVERSE(block, tmp, &bufmgr_fake->lru) {
 		drm_intel_bo_fake *bo_fake = (drm_intel_bo_fake *) block->bo;
 
-		if (bo_fake && (bo_fake->flags & BM_NO_FENCE_SUBDATA))
-			continue;
+		if (bo_fake) {
+			if (bo_fake->flags & BM_NO_FENCE_SUBDATA)
+				continue;
 
-		set_dirty(&bo_fake->bo);
-		bo_fake->block = NULL;
+			set_dirty(&bo_fake->bo);
+			bo_fake->block = NULL;
+		}
 
 		free_block(bufmgr_fake, block, 0);
 		return 1;
@@ -1592,6 +1596,8 @@ drm_intel_bufmgr *drm_intel_bufmgr_fake_init(int fd,
 	drm_intel_bufmgr_fake *bufmgr_fake;
 
 	bufmgr_fake = calloc(1, sizeof(*bufmgr_fake));
+	if (!bufmgr_fake)
+		return NULL;
 
 	if (pthread_mutex_init(&bufmgr_fake->lock, NULL) != 0) {
 		free(bufmgr_fake);

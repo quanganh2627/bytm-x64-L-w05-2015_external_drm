@@ -412,9 +412,15 @@ drm_intel_gem_bo_reference(drm_intel_bo *bo)
 static void
 drm_intel_add_validate_buffer(drm_intel_bo *bo)
 {
-	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
-	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+	drm_intel_bufmgr_gem *bufmgr_gem = NULL;
+	drm_intel_bo_gem *bo_gem = NULL;
 	int index;
+
+	if (!bo || !(bo->bufmgr))
+		return;
+
+	bo_gem = (drm_intel_bo_gem *) bo;
+	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
 
 	if (bo_gem->validate_index != -1)
 		return;
@@ -438,21 +444,29 @@ drm_intel_add_validate_buffer(drm_intel_bo *bo)
 	index = bufmgr_gem->exec_count;
 	bo_gem->validate_index = index;
 	/* Fill in array entry */
-	bufmgr_gem->exec_objects[index].handle = bo_gem->gem_handle;
-	bufmgr_gem->exec_objects[index].relocation_count = bo_gem->reloc_count;
-	bufmgr_gem->exec_objects[index].relocs_ptr = (uintptr_t) bo_gem->relocs;
-	bufmgr_gem->exec_objects[index].alignment = 0;
-	bufmgr_gem->exec_objects[index].offset = 0;
-	bufmgr_gem->exec_bos[index] = bo;
-	bufmgr_gem->exec_count++;
+	if (bufmgr_gem->exec_objects && bufmgr_gem->exec_bos) {
+		bufmgr_gem->exec_objects[index].handle = bo_gem->gem_handle;
+		bufmgr_gem->exec_objects[index].relocation_count = bo_gem->reloc_count;
+		bufmgr_gem->exec_objects[index].relocs_ptr = (uintptr_t) bo_gem->relocs;
+		bufmgr_gem->exec_objects[index].alignment = 0;
+		bufmgr_gem->exec_objects[index].offset = 0;
+		bufmgr_gem->exec_bos[index] = bo;
+		bufmgr_gem->exec_count++;
+	}
 }
 
 static void
 drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 {
-	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *)bo->bufmgr;
-	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *)bo;
+	drm_intel_bufmgr_gem *bufmgr_gem = NULL;
+	drm_intel_bo_gem *bo_gem = NULL;
 	int index;
+
+	if (!bo || !(bo->bufmgr))
+		return;
+
+	bo_gem = (drm_intel_bo_gem *) bo;
+	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
 
 	if (bo_gem->validate_index != -1) {
 		if (need_fence)
@@ -480,20 +494,24 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 	index = bufmgr_gem->exec_count;
 	bo_gem->validate_index = index;
 	/* Fill in array entry */
-	bufmgr_gem->exec2_objects[index].handle = bo_gem->gem_handle;
-	bufmgr_gem->exec2_objects[index].relocation_count = bo_gem->reloc_count;
-	bufmgr_gem->exec2_objects[index].relocs_ptr = (uintptr_t)bo_gem->relocs;
-	bufmgr_gem->exec2_objects[index].alignment = 0;
-	bufmgr_gem->exec2_objects[index].offset = 0;
-	bufmgr_gem->exec_bos[index] = bo;
-	bufmgr_gem->exec2_objects[index].flags = 0;
-	bufmgr_gem->exec2_objects[index].rsvd1 = 0;
-	bufmgr_gem->exec2_objects[index].rsvd2 = 0;
-	if (need_fence) {
-		bufmgr_gem->exec2_objects[index].flags |=
-			EXEC_OBJECT_NEEDS_FENCE;
+	if (bufmgr_gem->exec2_objects && bufmgr_gem->exec_bos) {
+		bufmgr_gem->exec2_objects[index].handle = bo_gem->gem_handle;
+		bufmgr_gem->exec2_objects[index].relocation_count = bo_gem->reloc_count;
+		bufmgr_gem->exec2_objects[index].relocs_ptr = (uintptr_t)bo_gem->relocs;
+		bufmgr_gem->exec2_objects[index].alignment = 0;
+		bufmgr_gem->exec2_objects[index].offset = 0;
+		bufmgr_gem->exec_bos[index] = bo;
+		bufmgr_gem->exec2_objects[index].flags = 0;
+		bufmgr_gem->exec2_objects[index].rsvd1 = 0;
+		bufmgr_gem->exec2_objects[index].rsvd2 = 0;
+
+		if (need_fence) {
+			bufmgr_gem->exec2_objects[index].flags |=
+				EXEC_OBJECT_NEEDS_FENCE;
+		}
+
+		bufmgr_gem->exec_count++;
 	}
-	bufmgr_gem->exec_count++;
 }
 
 #define RELOC_BUF_SIZE(x) ((I915_RELOC_HEADER + x * I915_RELOC0_STRIDE) * \
@@ -1588,17 +1606,20 @@ int drm_intel_gem_bo_unmap_vmap_obj_gtt(drm_intel_bo *bo)
 
 int drm_intel_gem_bo_unmap_gtt(drm_intel_bo *bo)
 {
-	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
-	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+	drm_intel_bufmgr_gem *bufmgr_gem = NULL;
+	drm_intel_bo_gem *bo_gem = NULL;
 	int ret = 0;
 
-	if (bo == NULL)
-		return 0;
-
-	if (bo_gem->is_vmap)
-		return drm_intel_gem_bo_unmap_vmap_obj_gtt(bo);
+	if (bo) {
+		bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+		bo_gem = (drm_intel_bo_gem *) bo;
+		if (bo_gem->is_vmap)
+			return drm_intel_gem_bo_unmap_vmap_obj_gtt(bo);
+		else
+			return drm_intel_gem_bo_unmap(bo);
+	}
 	else
-		return drm_intel_gem_bo_unmap(bo);
+		return 0;
 }
 
 static int
@@ -3179,6 +3200,9 @@ drm_intel_gem_context_create(drm_intel_bufmgr *bufmgr)
 	}
 
 	context = calloc(1, sizeof(*context));
+	if (!context)
+		return NULL;
+
 	context->ctx_id = create.ctx_id;
 	context->bufmgr = bufmgr;
 
