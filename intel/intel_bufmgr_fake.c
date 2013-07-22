@@ -1278,7 +1278,8 @@ drm_intel_fake_emit_reloc(drm_intel_bo *bo, uint32_t offset,
 		bo_fake->relocs =
 		    malloc(sizeof(struct fake_buffer_reloc) * MAX_RELOCS);
 	}
-
+	if (!bo_fake->relocs)
+		return -ENOMEM;
 	r = &bo_fake->relocs[bo_fake->nr_relocs++];
 
 	assert(bo_fake->nr_relocs <= MAX_RELOCS);
