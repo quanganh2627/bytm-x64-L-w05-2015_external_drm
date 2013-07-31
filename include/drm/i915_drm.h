@@ -61,6 +61,7 @@
 #define DRM_LETTERBOX    3
 
 #define DRM_PFIT_PROP "pfit"
+#define DRM_PRIMARY_DISABLE 1
 
 #define PLANE_A		1
 #define SPRITE_A	2
