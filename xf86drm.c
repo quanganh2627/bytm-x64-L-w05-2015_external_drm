@@ -190,11 +190,13 @@ drmHashEntry *drmGetEntry(int fd)
 
     if (drmHashLookup(drmHashTable, key, &value)) {
 	entry           = drmMalloc(sizeof(*entry));
-	entry->fd       = fd;
-	entry->f        = NULL;
-	entry->tagTable = drmHashCreate();
-	if (drmHashTable) {
-	    drmHashInsert(drmHashTable, key, entry);
+	if (entry) {
+	    entry->fd       = fd;
+	    entry->f        = NULL;
+	    entry->tagTable = drmHashCreate();
+	    if (drmHashTable) {
+		drmHashInsert(drmHashTable, key, entry);
+	    }
 	}
     } else {
 	entry = value;
@@ -742,6 +744,8 @@ drmVersionPtr drmGetVersion(int fd)
 {
     drmVersionPtr retval;
     drm_version_t *version = drmMalloc(sizeof(*version));
+    if(!version)
+	return NULL;
 
     version->name_len    = 0;
     version->name        = NULL;
@@ -774,7 +778,8 @@ drmVersionPtr drmGetVersion(int fd)
     if (version->desc_len) version->desc[version->desc_len] = '\0';
 
     retval = drmMalloc(sizeof(*retval));
-    drmCopyVersion(retval, version);
+    if (retval)
+	drmCopyVersion(retval, version);
     drmFreeKernelVersion(version);
     return retval;
 }
@@ -796,6 +801,8 @@ drmVersionPtr drmGetVersion(int fd)
 drmVersionPtr drmGetLibVersion(int fd)
 {
     drm_version_t *version = drmMalloc(sizeof(*version));
+    if (!version)
+	return NULL;
 
     /* Version history:
      *   NOTE THIS MUST NOT GO ABOVE VERSION 1.X due to drivers needing it
@@ -1189,16 +1196,20 @@ drmBufInfoPtr drmGetBufInfo(int fd)
 	}
 
 	retval = drmMalloc(sizeof(*retval));
-	retval->count = info.count;
-	retval->list  = drmMalloc(info.count * sizeof(*retval->list));
-	for (i = 0; i < info.count; i++) {
-	    retval->list[i].count     = info.list[i].count;
-	    retval->list[i].size      = info.list[i].size;
-	    retval->list[i].low_mark  = info.list[i].low_mark;
-	    retval->list[i].high_mark = info.list[i].high_mark;
+	if (retval) {
+	    retval->count = info.count;
+	    retval->list  = drmMalloc(info.count * sizeof(*retval->list));
+	    if (retval->list) {
+		for (i = 0; i < info.count; i++) {
+		    retval->list[i].count     = info.list[i].count;
+		    retval->list[i].size      = info.list[i].size;
+		    retval->list[i].low_mark  = info.list[i].low_mark;
+		    retval->list[i].high_mark = info.list[i].high_mark;
+		}
+		drmFree(info.list);
+		return retval;
+	    }
 	}
-	drmFree(info.list);
-	return retval;
     }
     return NULL;
 }
@@ -1242,18 +1253,22 @@ drmBufMapPtr drmMapBufs(int fd)
 	}
 
 	retval = drmMalloc(sizeof(*retval));
-	retval->count = bufs.count;
-	retval->list  = drmMalloc(bufs.count * sizeof(*retval->list));
-	for (i = 0; i < bufs.count; i++) {
-	    retval->list[i].idx     = bufs.list[i].idx;
-	    retval->list[i].total   = bufs.list[i].total;
-	    retval->list[i].used    = 0;
-	    retval->list[i].address = bufs.list[i].address;
+	if (retval) {
+	    retval->count = bufs.count;
+	    retval->list  = drmMalloc(bufs.count * sizeof(*retval->list));
+	    if (retval->list) {
+		for (i = 0; i < bufs.count; i++) {
+		    retval->list[i].idx     = bufs.list[i].idx;
+		    retval->list[i].total   = bufs.list[i].total;
+		    retval->list[i].used    = 0;
+		    retval->list[i].address = bufs.list[i].address;
+		}
+		drmFree(bufs.list);
+		return retval;
+	    }
 	}
 
-	drmFree(bufs.list);
-	
-	return retval;
+	return NULL;
 }
 
 
@@ -2596,6 +2611,9 @@ int drmCSCIoctl(int fd, struct CSCCoeff_Matrix *CSC_Matrix)
     }
 
     CSCCoeff = (struct CSC_Coeff *)malloc(sizeof(struct CSC_Coeff));
+    if (!CSCCoeff)
+	return -ENOMEM;
+
     calc_coeff(CSC_Matrix->CoeffMatrix, CSCCoeff->VLV_CSC_Coeff);
     CSCCoeff->crtc_id = CSC_Matrix->crtc_id;
 
