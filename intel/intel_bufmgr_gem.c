@@ -2656,7 +2656,20 @@ drm_intel_gem_bo_get_tiling(drm_intel_bo *bo, uint32_t * tiling_mode,
 static int
 drm_intel_gem_bo_set_datatype(drm_intel_bo *bo, uint32_t datatype)
 {
+	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+	struct drm_i915_gem_access_datatype access_datatype;
+	int ret;
+
+	access_datatype.handle = bo_gem->gem_handle;
+	access_datatype.datatype = datatype;
+	access_datatype.write = 1;
+
+	ret = ioctl(bufmgr_gem->fd,
+		    DRM_IOCTL_I915_GEM_ACCESS_DATATYPE,
+		    &access_datatype);
+	if (ret == -1)
+		return -errno;
 
 	bo_gem->datatype = datatype;
 	return 0;
@@ -2665,8 +2678,22 @@ drm_intel_gem_bo_set_datatype(drm_intel_bo *bo, uint32_t datatype)
 static int
 drm_intel_gem_bo_get_datatype(drm_intel_bo *bo, uint32_t *datatype, int refresh)
 {
+	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+	struct drm_i915_gem_access_datatype access_datatype;
+	int ret;
 
+	access_datatype.handle = bo_gem->gem_handle;
+	access_datatype.datatype = 0;
+	access_datatype.write = 0;
+
+	ret = ioctl(bufmgr_gem->fd,
+		    DRM_IOCTL_I915_GEM_ACCESS_DATATYPE,
+		    &access_datatype);
+	if (ret == -1)
+		return -errno;
+
+	bo_gem->datatype = access_datatype.datatype;
 	*datatype = bo_gem->datatype;
 	return 0;
 }
