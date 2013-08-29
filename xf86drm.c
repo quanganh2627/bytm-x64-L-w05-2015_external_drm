@@ -2133,6 +2133,9 @@ void *drmGetContextTag(int fd, drm_context_t context)
     drmHashEntry  *entry = drmGetEntry(fd);
     void          *value;
 
+    if (!entry || !(entry->tagTable))
+	return NULL;
+
     if (drmHashLookup(entry->tagTable, context, &value))
 	return NULL;
 
