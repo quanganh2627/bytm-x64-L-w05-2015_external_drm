@@ -1035,9 +1035,16 @@ struct drm_i915_reserved_reg_bit_2 {
 	__u32 enable;
 	int plane;
 };
-#define	DPST_DIET_ENTRY_COUNT	33	/* Total number of DIET entries */
+
+/* Total number of DIET entries */
+#define	DPST_DIET_ENTRY_COUNT	33
+/* Value to reset image enhancement interrupt register */
 #define DPST_RESET_IE		0x40004000
-#define DPST_MAX_FACTOR		100
+/* No dpst adjustment for backlight, i.e, 100% of the user specified
+   backlight will be applied (dpst will not reduce the backlight). */
+#define DPST_MAX_FACTOR		10000
+/* Threshold that will generate interrupts when crossed */
+#define DEFAULT_GUARDBAND_VAL 30
 struct dpst_ie {
 	enum dpst_diet_alg {
 		i915_DPST_RGB_TRANSLATOR = 0,
@@ -1052,10 +1059,8 @@ struct dpst_ie {
 
 struct dpst_ie_container {
 	struct dpst_ie dpst_ie_st;
-	__u32	dpst_blc_freq;
 	__u32	dpst_blc_factor;
 	__u32	pipe_n;
-	__u32	reset_int;
 };
 
 struct dpst_initialize_data {
@@ -1063,7 +1068,7 @@ struct dpst_initialize_data {
 	__u32 threshold_gb;
 	__u32 gb_delay;
 	__u32 hist_reg_values;
-	__u32 blc_inv_settings;
+	__u32 image_res;
 	__u32 sig_num;
 };
 
@@ -1100,4 +1105,5 @@ struct dpst_initialize_context {
 		struct dpst_histogram_status	hist_status;
 	};
 };
+
 #endif				/* _I915_DRM_H_ */
