@@ -1149,6 +1149,7 @@ struct dpst_histogram {
 
 struct dpst_histogram_status {
 	__u32	pipe_n;
+	__u32   dpst_disable;
 	struct dpst_histogram histogram_bins;
 };
 
