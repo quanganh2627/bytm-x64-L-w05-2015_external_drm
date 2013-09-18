@@ -181,6 +181,7 @@ void drm_intel_bufmgr_gem_enable_fenced_relocs(drm_intel_bufmgr *bufmgr);
 void drm_intel_bufmgr_gem_set_vma_cache_size(drm_intel_bufmgr *bufmgr,
 					     int limit);
 int drm_intel_gem_bo_map_unsynchronized(drm_intel_bo *bo);
+int drm_intel_gem_bo_map_unsynchronized2(drm_intel_bo *bo);
 int drm_intel_gem_bo_map_gtt(drm_intel_bo *bo);
 int drm_intel_gem_bo_unmap_gtt(drm_intel_bo *bo);
 
