@@ -1557,6 +1557,56 @@ int drm_intel_gem_bo_map_unsynchronized(drm_intel_bo *bo)
 	return ret;
 }
 
+int drm_intel_gem_bo_map_unsynchronized2(drm_intel_bo *bo)
+{
+    drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
+    drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+    int ret;
+
+    pthread_mutex_lock(&bufmgr_gem->lock);
+
+    if (bo_gem->map_count++ == 0)
+        drm_intel_gem_bo_open_vma(bufmgr_gem, bo_gem);
+
+    if (!bo_gem->mem_virtual) {
+        struct drm_i915_gem_mmap mmap_arg;
+
+        DBG("bo_map_unsynchronized2: %d (%s), map_count=%d\n",
+            bo_gem->gem_handle, bo_gem->name, bo_gem->map_count);
+
+        VG_CLEAR(mmap_arg);
+        mmap_arg.handle = bo_gem->gem_handle;
+        mmap_arg.offset = 0;
+        mmap_arg.size = bo->size;
+        ret = drmIoctl(bufmgr_gem->fd,
+                   DRM_IOCTL_I915_GEM_MMAP,
+                   &mmap_arg);
+        if (ret != 0) {
+            ret = -errno;
+            DBG("%s:%d: Error mapping buffer %d (%s): %s .\n",
+                __FILE__, __LINE__, bo_gem->gem_handle,
+                bo_gem->name, strerror(errno));
+            if (--bo_gem->map_count == 0)
+                drm_intel_gem_bo_close_vma(bufmgr_gem, bo_gem);
+            pthread_mutex_unlock(&bufmgr_gem->lock);
+            return ret;
+        }
+        VG(VALGRIND_MALLOCLIKE_BLOCK(mmap_arg.addr_ptr, mmap_arg.size, 0, 1));
+        bo_gem->mem_virtual = (void *)(uintptr_t) mmap_arg.addr_ptr;
+    }
+    DBG("bo_map: %d (%s) -> %p\n", bo_gem->gem_handle, bo_gem->name,
+        bo_gem->mem_virtual);
+    bo->virtual = bo_gem->mem_virtual;
+
+    bo_gem->mapped_cpu_write = true;
+
+    drm_intel_gem_bo_mark_mmaps_incoherent(bo);
+    VG(VALGRIND_MAKE_MEM_DEFINED(bo_gem->mem_virtual, bo->size));
+    pthread_mutex_unlock(&bufmgr_gem->lock);
+
+    return 0;
+}
+
 static int drm_intel_gem_bo_unmap(drm_intel_bo *bo)
 {
 	drm_intel_bufmgr_gem *bufmgr_gem;
