@@ -743,6 +743,7 @@ retry:
 		bo_gem->bo.handle = bo_gem->gem_handle;
 		if (ret != 0) {
 			free(bo_gem);
+			bo_gem = NULL;
 			return NULL;
 		}
 		bo_gem->bo.bufmgr = bufmgr;
@@ -887,6 +888,7 @@ drm_intel_gem_bo_alloc_vmap(drm_intel_bufmgr *bufmgr,
 		DBG("bo_create_vmap: ioctl failed with user ptr 0x%x, size 0x%lx, user flags 0x%lx \n",
 			(uint32_t)addr, size, flags);
 		free(bo_gem);
+		bo_gem = NULL;
 		return NULL;
 	}
 	bo_gem->bo.bufmgr    = bufmgr;
@@ -914,6 +916,7 @@ drm_intel_gem_bo_alloc_vmap(drm_intel_bufmgr *bufmgr,
 		/* For the Tiled buffer, the user_ptr shall be page boundary aligned*/
 		if (((uint32_t)addr) & pagesize_mask) {
 			free(bo_gem);
+			bo_gem = NULL;
 			return NULL;
 		}
 		ret = drm_intel_gem_bo_set_tiling_internal(&bo_gem->bo, tiling_mode, stride);
@@ -921,6 +924,7 @@ drm_intel_gem_bo_alloc_vmap(drm_intel_bufmgr *bufmgr,
 			DBG("bo_set_tiling_internal: ioctl failed with user ptr 0x%x, tiling_mode %d, stride 0x%x, size 0x%lx, user flags 0x%lx \n",
 				(uint32_t)addr, tiling_mode, stride, size, flags);
 			free(bo_gem);
+			bo_gem = NULL;
 			return NULL;
 		}
 	}
@@ -958,6 +962,7 @@ drm_intel_bo_gem_create_from_prime_fd(drm_intel_bufmgr *bufmgr,
         DBG("Couldn't reference %s handle 0x%08x: %s\n",
             name, prime_fd, strerror(errno));
             free(bo_gem);
+            bo_gem = NULL;
             return NULL;
     }
 	bo_gem->bo.offset = 0;
@@ -1033,6 +1038,7 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 		DBG("Couldn't reference %s handle 0x%08x: %s\n",
 		    name, handle, strerror(errno));
 		free(bo_gem);
+		bo_gem = NULL;
 		return NULL;
 	}
 	bo_gem->bo.size = open_arg.size;
@@ -1808,8 +1814,11 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	int i;
 
 	free(bufmgr_gem->exec2_objects);
+	bufmgr_gem->exec2_objects = NULL;
 	free(bufmgr_gem->exec_objects);
+	bufmgr_gem->exec_objects = NULL;
 	free(bufmgr_gem->exec_bos);
+	bufmgr_gem->exec_bos = NULL;
 
 	pthread_mutex_destroy(&bufmgr_gem->lock);
 
@@ -1829,6 +1838,7 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	}
 
 	free(bufmgr);
+	bufmgr = NULL;
 }
 
 /**
@@ -2107,6 +2117,7 @@ aub_write_bo_data(drm_intel_bo *bo, uint32_t offset, uint32_t size)
 	if (!bo_gem->reloc_count) {
 		aub_out_data(bufmgr_gem, data, size);
 		free(data);
+		data = NULL;
 		return;
 	}
 
@@ -2141,6 +2152,7 @@ aub_write_bo_data(drm_intel_bo *bo, uint32_t offset, uint32_t size)
 	}
 
 	free(data);
+	data = NULL;
 }
 
 static void
@@ -3294,6 +3306,7 @@ drm_intel_gem_context_destroy(drm_intel_context *ctx)
 			strerror(errno));
 
 	free(ctx);
+	ctx = NULL;
 }
 
 int
@@ -3379,6 +3392,7 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 
 	if (pthread_mutex_init(&bufmgr_gem->lock, NULL) != 0) {
 		free(bufmgr_gem);
+		bufmgr_gem = NULL;
 		return NULL;
 	}
 
@@ -3414,6 +3428,7 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 		bufmgr_gem->gen = 7;
 	else {
 		free(bufmgr_gem);
+		bufmgr_gem = NULL;
 		return NULL;
 	}
 
