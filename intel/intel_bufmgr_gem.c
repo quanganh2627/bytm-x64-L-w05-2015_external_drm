@@ -1096,7 +1096,9 @@ drm_intel_gem_bo_free(drm_intel_bo *bo)
 		    bo_gem->gem_handle, bo_gem->name, strerror(errno));
 	}
 	free(bo_gem->aub_annotations);
+	bo_gem->aub_annotations = NULL;
 	free(bo);
+	bo = NULL;
 }
 
 static void
@@ -1269,6 +1271,9 @@ static void drm_intel_gem_bo_unreference_locked_timed(drm_intel_bo *bo,
 						      time_t time)
 {
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
+
+	if (!bo_gem)
+		return;
 
 	assert(atomic_read(&bo_gem->refcount) > 0);
 	if (atomic_dec_and_test(&bo_gem->refcount))
