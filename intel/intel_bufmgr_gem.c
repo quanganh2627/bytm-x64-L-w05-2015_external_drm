@@ -1404,9 +1404,17 @@ map_gtt(drm_intel_bo *bo)
 		}
 
 		/* and mmap it */
-		bo_gem->gtt_virtual = mmap(0, bo->size, PROT_READ | PROT_WRITE,
-					   MAP_SHARED, bufmgr_gem->fd,
-					   mmap_arg.offset);
+		if (sizeof(long) == 8) {
+			bo_gem->gtt_virtual = mmap(0, bo->size, PROT_READ | PROT_WRITE,
+						   MAP_SHARED, bufmgr_gem->fd,
+						   mmap_arg.offset);
+		} else {
+			if (mmap_arg.offset & ((1UL << PAGE_SHIFT) - 1))
+				return EINVAL;
+			bo_gem->gtt_virtual = __mmap2(0, bo->size, PROT_READ | PROT_WRITE,
+						      MAP_SHARED, bufmgr_gem->fd,
+						      (unsigned long)(mmap_arg.offset >> PAGE_SHIFT));
+		}
 		if (bo_gem->gtt_virtual == MAP_FAILED) {
 			bo_gem->gtt_virtual = NULL;
 			ret = -errno;

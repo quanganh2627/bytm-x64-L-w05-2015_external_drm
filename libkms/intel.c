@@ -171,7 +171,13 @@ intel_bo_map(struct kms_bo *_bo, void **out)
 	if (ret)
 		return ret;
 
-	map = mmap(0, bo->base.size, PROT_READ | PROT_WRITE, MAP_SHARED, bo->base.kms->fd, arg.offset);
+	if (sizeof(long) == 8) {
+		map = mmap(0, bo->base.size, PROT_READ | PROT_WRITE, MAP_SHARED, bo->base.kms->fd, arg.offset);
+	} else {
+		if (arg.offset & ((1UL << PAGE_SHIFT) - 1))
+			return EINVAL;
+		map = __mmap2(0, bo->base.size, PROT_READ | PROT_WRITE, MAP_SHARED, bo->base.kms->fd, (unsigned long)(arg.offset >> PAGE_SHIFT));
+	}
 	if (map == MAP_FAILED)
 		return -errno;
 
