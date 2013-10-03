@@ -61,6 +61,7 @@
 #define DRM_LETTERBOX    3
 
 #define DRM_PFIT_PROP "pfit"
+#define DRM_PRIMARY_DISABLE 1
 
 #define PLANE_A		1
 #define SPRITE_A	2
@@ -282,7 +283,7 @@ typedef struct _drm_i915_sarea {
 #define DRM_IOCTL_I915_HWS_ADDR		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_HWS_ADDR, struct drm_i915_gem_init)
 #define DRM_IOCTL_I915_GEM_INIT		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_GEM_INIT, struct drm_i915_gem_init)
 #define DRM_IOCTL_I915_GEM_EXECBUFFER	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_GEM_EXECBUFFER, struct drm_i915_gem_execbuffer)
-#define DRM_IOCTL_I915_GEM_EXECBUFFER2	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_GEM_EXECBUFFER2, struct drm_i915_gem_execbuffer2)
+#define DRM_IOCTL_I915_GEM_EXECBUFFER2	DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_EXECBUFFER2, struct drm_i915_gem_execbuffer2)
 #define DRM_IOCTL_I915_GEM_PIN		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_PIN, struct drm_i915_gem_pin)
 #define DRM_IOCTL_I915_GEM_UNPIN	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_GEM_UNPIN, struct drm_i915_gem_unpin)
 #define DRM_IOCTL_I915_GEM_BUSY		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_BUSY, struct drm_i915_gem_busy)
@@ -791,6 +792,15 @@ struct drm_i915_gem_execbuffer2 {
 
 /* Enable watchdog timeout detection for an individual batch buffer */
 #define I915_EXEC_ENABLE_WATCHDOG       (1<<9)
+
+/* Caller supplies a sync fence fd in the rsvd2 field.
+* Wait for it to be signalled before starting the work*/
+#define I915_EXEC_WAIT_FENCE		(1<<10)
+
+/* Caller wants a sync fence fd for this execbuffer.
+*  It will be returned in rsvd2 */
+#define I915_EXEC_REQUEST_FENCE		(1<<11)
+
 
 #define I915_EXEC_CONTEXT_ID_MASK	(0xffffffff)
 #define i915_execbuffer2_set_context_id(eb2, context) \

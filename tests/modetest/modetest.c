@@ -677,7 +677,7 @@ set_plane(struct kms_driver *kms, struct connector *c, struct plane *p)
 	/* note src coords (last 4 args) are in Q16 format */
 	if (drmModeSetPlane(fd, plane_id, c->crtc, p->fb_id,
 			    plane_flags, crtc_x, crtc_y, crtc_w, crtc_h,
-			    0, 0, p->w << 16, p->h << 16)) {
+			    0, 0, p->w << 16, p->h << 16), NULL) {
 		fprintf(stderr, "failed to enable plane: %s\n",
 			strerror(errno));
 		return -1;
