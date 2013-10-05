@@ -756,6 +756,9 @@ retry:
 		bo_gem->swizzle_mode = I915_BIT_6_SWIZZLE_NONE;
 		bo_gem->stride = 0;
 
+		DRMINITLISTHEAD(&bo_gem->name_list);
+		DRMINITLISTHEAD(&bo_gem->vma_list);
+
 		if (drm_intel_gem_bo_set_tiling_internal(&bo_gem->bo,
 							 tiling_mode,
 							 stride)) {
@@ -763,8 +766,6 @@ retry:
 		    return NULL;
 		}
 
-		DRMINITLISTHEAD(&bo_gem->name_list);
-		DRMINITLISTHEAD(&bo_gem->vma_list);
 	}
 
 	bo_gem->name = name;
@@ -979,6 +980,10 @@ drm_intel_bo_gem_create_from_prime_fd(drm_intel_bufmgr *bufmgr,
 	bo_gem->bo.handle = prime.handle;
 	bo_gem->global_name = prime_fd;
 	bo_gem->reusable = false;
+
+	DRMINITLISTHEAD(&bo_gem->name_list);
+	DRMINITLISTHEAD(&bo_gem->vma_list);
+
 	VG_CLEAR(get_tiling);
 	get_tiling.handle = bo_gem->gem_handle;
 	ret = drmIoctl(bufmgr_gem->fd,
@@ -1057,6 +1062,9 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	bo_gem->global_name = handle;
 	bo_gem->reusable = false;
 
+	DRMINITLISTHEAD(&bo_gem->name_list);
+	DRMINITLISTHEAD(&bo_gem->vma_list);
+
 	VG_CLEAR(get_tiling);
 	get_tiling.handle = bo_gem->gem_handle;
 	ret = drmIoctl(bufmgr_gem->fd,
@@ -1071,7 +1079,6 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	/* XXX stride is unknown */
 	drm_intel_bo_gem_set_in_aperture_size(bufmgr_gem, bo_gem);
 
-	DRMINITLISTHEAD(&bo_gem->vma_list);
 	DRMLISTADDTAIL(&bo_gem->name_list, &bufmgr_gem->named);
 	DBG("bo_create_from_handle: %d (%s)\n", handle, bo_gem->name);
 
@@ -1086,7 +1093,15 @@ drm_intel_gem_bo_free(drm_intel_bo *bo)
 	struct drm_gem_close close;
 	int ret;
 
-	DRMLISTDEL(&bo_gem->vma_list);
+	/* Precautionary checks to prevent libdrm crash */
+	if ((bo_gem->vma_list.prev != NULL) &&
+	    (bo_gem->vma_list.next != NULL))
+		DRMLISTDELINIT(&bo_gem->vma_list);
+	else {
+		DBG("Invalid condition hit in bo_free for bo %d\n",
+			bo_gem->gem_handle);
+	}
+
 	if (bo_gem->mem_virtual) {
 		VG(VALGRIND_FREELIKE_BLOCK(bo_gem->mem_virtual, 0));
 		munmap(bo_gem->mem_virtual, bo_gem->bo.size);
@@ -1259,7 +1274,14 @@ drm_intel_gem_bo_unreference_final(drm_intel_bo *bo, time_t time)
 		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
 	}
 
-	DRMLISTDEL(&bo_gem->name_list);
+	/* Precautionary checks to prevent libdrm crash */
+	if ((bo_gem->name_list.prev != NULL) &&
+	    (bo_gem->name_list.next != NULL))
+		DRMLISTDELINIT(&bo_gem->name_list);
+	else {
+		DBG("Invalid condition hit in bo_unreference for bo %d\n",
+			bo_gem->gem_handle);
+	}
 
 	bucket = drm_intel_gem_bo_bucket_for_size(bufmgr_gem, bo->size);
 	/* Put the buffer into our internal cache for reuse if we can. */
