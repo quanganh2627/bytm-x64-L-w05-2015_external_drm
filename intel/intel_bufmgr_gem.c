@@ -455,7 +455,7 @@ drm_intel_add_validate_buffer(drm_intel_bo *bo)
 	}
 }
 
-static void
+static int
 drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 {
 	drm_intel_bufmgr_gem *bufmgr_gem = NULL;
@@ -463,7 +463,7 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 	int index;
 
 	if (!bo || !(bo->bufmgr))
-		return;
+		return -EINVAL;
 
 	bo_gem = (drm_intel_bo_gem *) bo;
 	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
@@ -472,7 +472,7 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 		if (need_fence)
 			bufmgr_gem->exec2_objects[bo_gem->validate_index].flags |=
 				EXEC_OBJECT_NEEDS_FENCE;
-		return;
+		return 0;
 	}
 
 	/* Extend the array of validation entries as necessary. */
@@ -490,6 +490,9 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 				sizeof(*bufmgr_gem->exec_bos) * new_size);
 		bufmgr_gem->exec_size = new_size;
 	}
+
+	if (!bufmgr_gem->exec2_objects || !bufmgr_gem->exec_bos)
+		return -ENOMEM;
 
 	index = bufmgr_gem->exec_count;
 	bo_gem->validate_index = index;
@@ -512,6 +515,7 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 
 		bufmgr_gem->exec_count++;
 	}
+	return 0;
 }
 
 #define RELOC_BUF_SIZE(x) ((I915_RELOC_HEADER + x * I915_RELOC0_STRIDE) * \
@@ -1813,11 +1817,16 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bufmgr;
 	int i;
 
-	free(bufmgr_gem->exec2_objects);
+	if (bufmgr_gem->exec2_objects != NULL)
+		free(bufmgr_gem->exec2_objects);
 	bufmgr_gem->exec2_objects = NULL;
-	free(bufmgr_gem->exec_objects);
+
+	if (bufmgr_gem->exec_objects != NULL)
+		free(bufmgr_gem->exec_objects);
 	bufmgr_gem->exec_objects = NULL;
-	free(bufmgr_gem->exec_bos);
+
+	if (bufmgr_gem->exec_bos != NULL)
+		free(bufmgr_gem->exec_bos);
 	bufmgr_gem->exec_bos = NULL;
 
 	pthread_mutex_destroy(&bufmgr_gem->lock);
@@ -2019,14 +2028,15 @@ drm_intel_gem_bo_process_reloc(drm_intel_bo *bo)
 	}
 }
 
-static void
+static int
 drm_intel_gem_bo_process_reloc2(drm_intel_bo *bo)
 {
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *)bo;
 	int i;
+	int ret = 0;
 
 	if (bo_gem->relocs == NULL)
-		return;
+		return 0;
 
 	for (i = 0; i < bo_gem->reloc_count; i++) {
 		drm_intel_bo *target_bo = bo_gem->reloc_target_info[i].bo;
@@ -2038,14 +2048,20 @@ drm_intel_gem_bo_process_reloc2(drm_intel_bo *bo)
 		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
 
 		/* Continue walking the tree depth-first. */
-		drm_intel_gem_bo_process_reloc2(target_bo);
+		ret = drm_intel_gem_bo_process_reloc2(target_bo);
+		if (ret != 0)
+			return ret;
 
 		need_fence = (bo_gem->reloc_target_info[i].flags &
 			      DRM_INTEL_RELOC_FENCE);
 
 		/* Add the target to the validate list */
-		drm_intel_add_validate_buffer2(target_bo, need_fence);
+		ret = drm_intel_add_validate_buffer2(target_bo, need_fence);
+		if (ret != 0)
+			return ret;
 	}
+
+	return ret;
 }
 
 
@@ -2468,12 +2484,20 @@ do_exec2(drm_intel_bo *bo, int used, drm_intel_context *ctx,
 
 	pthread_mutex_lock(&bufmgr_gem->lock);
 	/* Update indices and set up the validate list. */
-	drm_intel_gem_bo_process_reloc2(bo);
+	ret = drm_intel_gem_bo_process_reloc2(bo);
+	if (ret != 0) {
+		pthread_mutex_unlock(&bufmgr_gem->lock);
+		return ret;
+	}
 
 	/* Add the batch buffer to the validation list.  There are no relocations
 	 * pointing to it.
 	 */
-	drm_intel_add_validate_buffer2(bo, 0);
+	ret = drm_intel_add_validate_buffer2(bo, 0);
+	if (ret != 0) {
+		pthread_mutex_unlock(&bufmgr_gem->lock);
+		return ret;
+	}
 
 	VG_CLEAR(execbuf);
 	execbuf.buffers_ptr = (uintptr_t)bufmgr_gem->exec2_objects;
