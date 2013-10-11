@@ -158,13 +158,20 @@ do_fence_wait(int fd)
                 sync_wait(fd, -1);
 
                 info = sync_fence_info(fd);
+		if (!info) {
+			/* EIO if an arbitrary choice for the error code.
+			* The called function either fails due to ENOMEM
+			* or error return from an ioctl.
+			*/
+			rc = -EIO;
+		} else {
+			if (info->status != 1) {
+				rc = -ETIMEDOUT;
+			} else
+				rc = 0;
 
-                if (info->status != 1) {
-                        rc = -ETIMEDOUT;
-		} else
-			rc = 0;
-
-                sync_fence_info_free(info);
+			sync_fence_info_free(info);
+		}
 
 		/* Ownership is transferred so close it */
 		close(fd);
