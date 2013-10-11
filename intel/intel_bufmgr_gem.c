@@ -95,6 +95,7 @@ typedef struct _drm_intel_bufmgr_gem {
 	int max_relocs;
 
 	pthread_mutex_t lock;
+	pthread_mutex_t list_lock;
 
 	struct drm_i915_gem_exec_object *exec_objects;
 	struct drm_i915_gem_exec_object2 *exec2_objects;
@@ -1024,15 +1025,18 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	 * alternating names for the front/back buffer a linear search
 	 * provides a sufficiently fast match.
 	 */
+	pthread_mutex_lock(&bufmgr_gem->list_lock);
 	for (list = bufmgr_gem->named.next;
 	     list != &bufmgr_gem->named;
 	     list = list->next) {
 		bo_gem = DRMLISTENTRY(drm_intel_bo_gem, list, name_list);
 		if (bo_gem->global_name == handle) {
 			drm_intel_gem_bo_reference(&bo_gem->bo);
+			pthread_mutex_unlock(&bufmgr_gem->list_lock);
 			return &bo_gem->bo;
 		}
 	}
+	pthread_mutex_unlock(&bufmgr_gem->list_lock);
 
 	bo_gem = calloc(1, sizeof(*bo_gem));
 	if (!bo_gem)
@@ -1079,7 +1083,9 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	/* XXX stride is unknown */
 	drm_intel_bo_gem_set_in_aperture_size(bufmgr_gem, bo_gem);
 
+	pthread_mutex_lock(&bufmgr_gem->list_lock);
 	DRMLISTADDTAIL(&bo_gem->name_list, &bufmgr_gem->named);
+	pthread_mutex_unlock(&bufmgr_gem->list_lock);
 	DBG("bo_create_from_handle: %d (%s)\n", handle, bo_gem->name);
 
 	return &bo_gem->bo;
@@ -1274,6 +1280,7 @@ drm_intel_gem_bo_unreference_final(drm_intel_bo *bo, time_t time)
 		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
 	}
 
+	pthread_mutex_lock(&bufmgr_gem->list_lock);
 	/* Precautionary checks to prevent libdrm crash */
 	if ((bo_gem->name_list.prev != NULL) &&
 	    (bo_gem->name_list.next != NULL))
@@ -1297,6 +1304,7 @@ drm_intel_gem_bo_unreference_final(drm_intel_bo *bo, time_t time)
 	} else {
 		drm_intel_gem_bo_free(bo);
 	}
+	pthread_mutex_unlock(&bufmgr_gem->list_lock);
 }
 
 static void drm_intel_gem_bo_unreference_locked_timed(drm_intel_bo *bo,
@@ -1902,6 +1910,7 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	bufmgr_gem->exec_bos = NULL;
 
 	pthread_mutex_destroy(&bufmgr_gem->lock);
+	pthread_mutex_destroy(&bufmgr_gem->list_lock);
 
 	/* Free any cached buffer objects we were going to reuse */
 	for (i = 0; i < bufmgr_gem->num_buckets; i++) {
@@ -2924,7 +2933,9 @@ drm_intel_gem_bo_flink(drm_intel_bo *bo, uint32_t * name)
 		bo_gem->global_name = flink.name;
 		bo_gem->reusable = false;
 
+		pthread_mutex_lock(&bufmgr_gem->list_lock);
 		DRMLISTADDTAIL(&bo_gem->name_list, &bufmgr_gem->named);
+		pthread_mutex_unlock(&bufmgr_gem->list_lock);
 	}
 
 	*name = bo_gem->global_name;
@@ -3487,6 +3498,12 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 	bufmgr_gem->fd = fd;
 
 	if (pthread_mutex_init(&bufmgr_gem->lock, NULL) != 0) {
+		free(bufmgr_gem);
+		bufmgr_gem = NULL;
+		return NULL;
+	}
+
+	if (pthread_mutex_init(&bufmgr_gem->list_lock, NULL) != 0) {
 		free(bufmgr_gem);
 		bufmgr_gem = NULL;
 		return NULL;
