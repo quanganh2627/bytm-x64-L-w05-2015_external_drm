@@ -646,6 +646,27 @@ drm_intel_gem_bo_cache_purge_bucket(drm_intel_bufmgr_gem *bufmgr_gem,
 	}
 }
 
+static void
+drm_intel_gem_empty_bo_cache(drm_intel_bufmgr_gem *bufmgr_gem)
+{
+	int i;
+
+	for (i = 0; i < bufmgr_gem->num_buckets; i++) {
+		struct drm_intel_gem_bo_bucket *bucket =
+		    &bufmgr_gem->cache_bucket[i];
+
+		while (!DRMLISTEMPTY(&bucket->head)) {
+			drm_intel_bo_gem *bo_gem;
+
+			bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
+					      bucket->head.next, head);
+
+			DRMLISTDEL(&bo_gem->head);
+			drm_intel_gem_bo_free(&bo_gem->bo);
+		}
+	}
+}
+
 static drm_intel_bo *
 drm_intel_gem_bo_alloc_internal(drm_intel_bufmgr *bufmgr,
 				const char *name,
@@ -659,26 +680,23 @@ drm_intel_gem_bo_alloc_internal(drm_intel_bufmgr *bufmgr,
 	unsigned int page_size = getpagesize();
 	int ret;
 	struct drm_intel_gem_bo_bucket *bucket;
+	struct _drmMMListHead *entry;
+	struct _drmMMListHead *temp;
 	bool alloc_from_cache;
-	unsigned long bo_size;
 	bool for_render = false;
+
+	/* XXX: Workaround for BO allocation requests of size 0 from DXVA
+	 *      driver; ensure these are successfully allocated. This should
+	 *      be removed when the UFO driver is fixed. */
+	if (size == 0)
+	{
+	    size = 1;
+	}
 
 	if (flags & BO_ALLOC_FOR_RENDER)
 		for_render = true;
 
-	/* Round the allocated size up to a power of two number of pages. */
 	bucket = drm_intel_gem_bo_bucket_for_size(bufmgr_gem, size);
-
-	/* If we don't have caching at this size, don't actually round the
-	 * allocation up.
-	 */
-	if (bucket == NULL) {
-		bo_size = size;
-		if (bo_size < page_size)
-			bo_size = page_size;
-	} else {
-		bo_size = bucket->size;
-	}
 
 	pthread_mutex_lock(&bufmgr_gem->lock);
 	/* Get a buffer out of the cache if available */
@@ -686,27 +704,40 @@ retry:
 	alloc_from_cache = false;
 	if (bucket != NULL && !DRMLISTEMPTY(&bucket->head)) {
 		if (for_render) {
-			/* Allocate new render-target BOs from the tail (MRU)
-			 * of the list, as it will likely be hot in the GPU
+			/* Search from the tail (MRU) of the list to allocate
+			 * render-target BOs, as they will likely be hot in the GPU
 			 * cache and in the aperture for us.
 			 */
-			bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
-					      bucket->head.prev, head);
-			DRMLISTDEL(&bo_gem->head);
-			alloc_from_cache = true;
+			DRMLISTFOREACHSAFEREVERSE(entry, temp, &bucket->head)
+			{
+			    bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
+					entry, head);
+
+			    if (bo_gem->bo.size >= size) {
+					DRMLISTDEL(&bo_gem->head);
+					alloc_from_cache = true;
+					break;
+			    }
+			}
 		} else {
 			/* For non-render-target BOs (where we're probably
 			 * going to map it first thing in order to fill it
-			 * with data), check if the last BO in the cache is
-			 * unbusy, and only reuse in that case. Otherwise,
-			 * allocating a new buffer is probably faster than
-			 * waiting for the GPU to finish.
+			 * with data), search from the head (LRU) of the list
+			 * and check if the BO is unbusy, and only reuse in that
+			 * case. Otherwise, allocating a new buffer is probably
+			 * faster than waiting for the GPU to finish.
 			 */
-			bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
-					      bucket->head.next, head);
-			if (!drm_intel_gem_bo_busy(&bo_gem->bo)) {
-				alloc_from_cache = true;
-				DRMLISTDEL(&bo_gem->head);
+			DRMLISTFOREACHSAFE(entry, temp, &bucket->head)
+			{
+			    bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
+					entry, head);
+
+			    if ((bo_gem->bo.size >= size) &&
+				!drm_intel_gem_bo_busy(&bo_gem->bo)) {
+					DRMLISTDEL(&bo_gem->head);
+					alloc_from_cache = true;
+					break;
+			    }
 			}
 		}
 
@@ -736,21 +767,38 @@ retry:
 		if (!bo_gem)
 			return NULL;
 
-		bo_gem->bo.size = bo_size;
+		bo_gem->bo.size = size;
 
 		VG_CLEAR(create);
-		create.size = bo_size;
+		create.size = size;
 
 		ret = drmIoctl(bufmgr_gem->fd,
 			       DRM_IOCTL_I915_GEM_CREATE,
 			       &create);
+
+		if (ret != 0) {
+			/* If allocation failed, clear the cache and retry.
+			 * Kernel has probably reclaimed any cached BOs already,
+			 * but may as well retry after emptying the buckets.
+			 */
+			drm_intel_gem_empty_bo_cache(bufmgr_gem);
+
+			VG_CLEAR(create);
+			create.size = size;
+
+			ret = drmIoctl(bufmgr_gem->fd,
+				       DRM_IOCTL_I915_GEM_CREATE,
+				       &create);
+
+			if (ret != 0) {
+				free(bo_gem);
+				bo_gem = NULL;
+				return NULL;
+			}
+		}
+
 		bo_gem->gem_handle = create.handle;
 		bo_gem->bo.handle = bo_gem->gem_handle;
-		if (ret != 0) {
-			free(bo_gem);
-			bo_gem = NULL;
-			return NULL;
-		}
 		bo_gem->bo.bufmgr = bufmgr;
 
 		bo_gem->tiling_mode = I915_TILING_NONE;
@@ -1291,6 +1339,7 @@ drm_intel_gem_bo_unreference_final(drm_intel_bo *bo, time_t time)
 	}
 
 	bucket = drm_intel_gem_bo_bucket_for_size(bufmgr_gem, bo->size);
+
 	/* Put the buffer into our internal cache for reuse if we can. */
 	if (bufmgr_gem->bo_reuse && bo_gem->reusable && bucket != NULL &&
 	    drm_intel_gem_bo_madvise_internal(bufmgr_gem, bo_gem,
@@ -1895,7 +1944,6 @@ static void
 drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 {
 	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bufmgr;
-	int i;
 
 	if (bufmgr_gem->exec2_objects != NULL)
 		free(bufmgr_gem->exec2_objects);
@@ -1912,20 +1960,7 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	pthread_mutex_destroy(&bufmgr_gem->lock);
 	pthread_mutex_destroy(&bufmgr_gem->list_lock);
 
-	/* Free any cached buffer objects we were going to reuse */
-	for (i = 0; i < bufmgr_gem->num_buckets; i++) {
-		struct drm_intel_gem_bo_bucket *bucket =
-		    &bufmgr_gem->cache_bucket[i];
-		drm_intel_bo_gem *bo_gem;
-
-		while (!DRMLISTEMPTY(&bucket->head)) {
-			bo_gem = DRMLISTENTRY(drm_intel_bo_gem,
-					      bucket->head.next, head);
-			DRMLISTDEL(&bo_gem->head);
-
-			drm_intel_gem_bo_free(&bo_gem->bo);
-		}
-	}
+	drm_intel_gem_empty_bo_cache(bufmgr_gem);
 
 	free(bufmgr);
 	bufmgr = NULL;
