@@ -455,7 +455,7 @@ drm_intel_add_validate_buffer(drm_intel_bo *bo)
 	}
 }
 
-static int
+static void
 drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 {
 	drm_intel_bufmgr_gem *bufmgr_gem = NULL;
@@ -463,7 +463,7 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 	int index;
 
 	if (!bo || !(bo->bufmgr))
-		return -EINVAL;
+		return;
 
 	bo_gem = (drm_intel_bo_gem *) bo;
 	bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
@@ -472,7 +472,7 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 		if (need_fence)
 			bufmgr_gem->exec2_objects[bo_gem->validate_index].flags |=
 				EXEC_OBJECT_NEEDS_FENCE;
-		return 0;
+		return;
 	}
 
 	/* Extend the array of validation entries as necessary. */
@@ -490,9 +490,6 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 				sizeof(*bufmgr_gem->exec_bos) * new_size);
 		bufmgr_gem->exec_size = new_size;
 	}
-
-	if (!bufmgr_gem->exec2_objects || !bufmgr_gem->exec_bos)
-		return -ENOMEM;
 
 	index = bufmgr_gem->exec_count;
 	bo_gem->validate_index = index;
@@ -515,7 +512,6 @@ drm_intel_add_validate_buffer2(drm_intel_bo *bo, int need_fence)
 
 		bufmgr_gem->exec_count++;
 	}
-	return 0;
 }
 
 #define RELOC_BUF_SIZE(x) ((I915_RELOC_HEADER + x * I915_RELOC0_STRIDE) * \
@@ -756,9 +752,6 @@ retry:
 		bo_gem->swizzle_mode = I915_BIT_6_SWIZZLE_NONE;
 		bo_gem->stride = 0;
 
-		DRMINITLISTHEAD(&bo_gem->name_list);
-		DRMINITLISTHEAD(&bo_gem->vma_list);
-
 		if (drm_intel_gem_bo_set_tiling_internal(&bo_gem->bo,
 							 tiling_mode,
 							 stride)) {
@@ -766,6 +759,8 @@ retry:
 		    return NULL;
 		}
 
+		DRMINITLISTHEAD(&bo_gem->name_list);
+		DRMINITLISTHEAD(&bo_gem->vma_list);
 	}
 
 	bo_gem->name = name;
@@ -980,10 +975,6 @@ drm_intel_bo_gem_create_from_prime_fd(drm_intel_bufmgr *bufmgr,
 	bo_gem->bo.handle = prime.handle;
 	bo_gem->global_name = prime_fd;
 	bo_gem->reusable = false;
-
-	DRMINITLISTHEAD(&bo_gem->name_list);
-	DRMINITLISTHEAD(&bo_gem->vma_list);
-
 	VG_CLEAR(get_tiling);
 	get_tiling.handle = bo_gem->gem_handle;
 	ret = drmIoctl(bufmgr_gem->fd,
@@ -1062,9 +1053,6 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	bo_gem->global_name = handle;
 	bo_gem->reusable = false;
 
-	DRMINITLISTHEAD(&bo_gem->name_list);
-	DRMINITLISTHEAD(&bo_gem->vma_list);
-
 	VG_CLEAR(get_tiling);
 	get_tiling.handle = bo_gem->gem_handle;
 	ret = drmIoctl(bufmgr_gem->fd,
@@ -1079,6 +1067,7 @@ drm_intel_bo_gem_create_from_name(drm_intel_bufmgr *bufmgr,
 	/* XXX stride is unknown */
 	drm_intel_bo_gem_set_in_aperture_size(bufmgr_gem, bo_gem);
 
+	DRMINITLISTHEAD(&bo_gem->vma_list);
 	DRMLISTADDTAIL(&bo_gem->name_list, &bufmgr_gem->named);
 	DBG("bo_create_from_handle: %d (%s)\n", handle, bo_gem->name);
 
@@ -1093,15 +1082,7 @@ drm_intel_gem_bo_free(drm_intel_bo *bo)
 	struct drm_gem_close close;
 	int ret;
 
-	/* Precautionary checks to prevent libdrm crash */
-	if ((bo_gem->vma_list.prev != NULL) &&
-	    (bo_gem->vma_list.next != NULL))
-		DRMLISTDELINIT(&bo_gem->vma_list);
-	else {
-		DBG("Invalid condition hit in bo_free for bo %d\n",
-			bo_gem->gem_handle);
-	}
-
+	DRMLISTDEL(&bo_gem->vma_list);
 	if (bo_gem->mem_virtual) {
 		VG(VALGRIND_FREELIKE_BLOCK(bo_gem->mem_virtual, 0));
 		munmap(bo_gem->mem_virtual, bo_gem->bo.size);
@@ -1274,14 +1255,7 @@ drm_intel_gem_bo_unreference_final(drm_intel_bo *bo, time_t time)
 		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
 	}
 
-	/* Precautionary checks to prevent libdrm crash */
-	if ((bo_gem->name_list.prev != NULL) &&
-	    (bo_gem->name_list.next != NULL))
-		DRMLISTDELINIT(&bo_gem->name_list);
-	else {
-		DBG("Invalid condition hit in bo_unreference for bo %d\n",
-			bo_gem->gem_handle);
-	}
+	DRMLISTDEL(&bo_gem->name_list);
 
 	bucket = drm_intel_gem_bo_bucket_for_size(bufmgr_gem, bo->size);
 	/* Put the buffer into our internal cache for reuse if we can. */
@@ -1555,56 +1529,6 @@ int drm_intel_gem_bo_map_unsynchronized(drm_intel_bo *bo)
 	pthread_mutex_unlock(&bufmgr_gem->lock);
 
 	return ret;
-}
-
-int drm_intel_gem_bo_map_unsynchronized2(drm_intel_bo *bo)
-{
-    drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bo->bufmgr;
-    drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *) bo;
-    int ret;
-
-    pthread_mutex_lock(&bufmgr_gem->lock);
-
-    if (bo_gem->map_count++ == 0)
-        drm_intel_gem_bo_open_vma(bufmgr_gem, bo_gem);
-
-    if (!bo_gem->mem_virtual) {
-        struct drm_i915_gem_mmap mmap_arg;
-
-        DBG("bo_map_unsynchronized2: %d (%s), map_count=%d\n",
-            bo_gem->gem_handle, bo_gem->name, bo_gem->map_count);
-
-        VG_CLEAR(mmap_arg);
-        mmap_arg.handle = bo_gem->gem_handle;
-        mmap_arg.offset = 0;
-        mmap_arg.size = bo->size;
-        ret = drmIoctl(bufmgr_gem->fd,
-                   DRM_IOCTL_I915_GEM_MMAP,
-                   &mmap_arg);
-        if (ret != 0) {
-            ret = -errno;
-            DBG("%s:%d: Error mapping buffer %d (%s): %s .\n",
-                __FILE__, __LINE__, bo_gem->gem_handle,
-                bo_gem->name, strerror(errno));
-            if (--bo_gem->map_count == 0)
-                drm_intel_gem_bo_close_vma(bufmgr_gem, bo_gem);
-            pthread_mutex_unlock(&bufmgr_gem->lock);
-            return ret;
-        }
-        VG(VALGRIND_MALLOCLIKE_BLOCK(mmap_arg.addr_ptr, mmap_arg.size, 0, 1));
-        bo_gem->mem_virtual = (void *)(uintptr_t) mmap_arg.addr_ptr;
-    }
-    DBG("bo_map: %d (%s) -> %p\n", bo_gem->gem_handle, bo_gem->name,
-        bo_gem->mem_virtual);
-    bo->virtual = bo_gem->mem_virtual;
-
-    bo_gem->mapped_cpu_write = true;
-
-    drm_intel_gem_bo_mark_mmaps_incoherent(bo);
-    VG(VALGRIND_MAKE_MEM_DEFINED(bo_gem->mem_virtual, bo->size));
-    pthread_mutex_unlock(&bufmgr_gem->lock);
-
-    return 0;
 }
 
 static int drm_intel_gem_bo_unmap(drm_intel_bo *bo)
@@ -1897,16 +1821,11 @@ drm_intel_bufmgr_gem_destroy(drm_intel_bufmgr *bufmgr)
 	drm_intel_bufmgr_gem *bufmgr_gem = (drm_intel_bufmgr_gem *) bufmgr;
 	int i;
 
-	if (bufmgr_gem->exec2_objects != NULL)
-		free(bufmgr_gem->exec2_objects);
+	free(bufmgr_gem->exec2_objects);
 	bufmgr_gem->exec2_objects = NULL;
-
-	if (bufmgr_gem->exec_objects != NULL)
-		free(bufmgr_gem->exec_objects);
+	free(bufmgr_gem->exec_objects);
 	bufmgr_gem->exec_objects = NULL;
-
-	if (bufmgr_gem->exec_bos != NULL)
-		free(bufmgr_gem->exec_bos);
+	free(bufmgr_gem->exec_bos);
 	bufmgr_gem->exec_bos = NULL;
 
 	pthread_mutex_destroy(&bufmgr_gem->lock);
@@ -2108,15 +2027,14 @@ drm_intel_gem_bo_process_reloc(drm_intel_bo *bo)
 	}
 }
 
-static int
+static void
 drm_intel_gem_bo_process_reloc2(drm_intel_bo *bo)
 {
 	drm_intel_bo_gem *bo_gem = (drm_intel_bo_gem *)bo;
 	int i;
-	int ret = 0;
 
 	if (bo_gem->relocs == NULL)
-		return 0;
+		return;
 
 	for (i = 0; i < bo_gem->reloc_count; i++) {
 		drm_intel_bo *target_bo = bo_gem->reloc_target_info[i].bo;
@@ -2128,20 +2046,14 @@ drm_intel_gem_bo_process_reloc2(drm_intel_bo *bo)
 		drm_intel_gem_bo_mark_mmaps_incoherent(bo);
 
 		/* Continue walking the tree depth-first. */
-		ret = drm_intel_gem_bo_process_reloc2(target_bo);
-		if (ret != 0)
-			return ret;
+		drm_intel_gem_bo_process_reloc2(target_bo);
 
 		need_fence = (bo_gem->reloc_target_info[i].flags &
 			      DRM_INTEL_RELOC_FENCE);
 
 		/* Add the target to the validate list */
-		ret = drm_intel_add_validate_buffer2(target_bo, need_fence);
-		if (ret != 0)
-			return ret;
+		drm_intel_add_validate_buffer2(target_bo, need_fence);
 	}
-
-	return ret;
 }
 
 
@@ -2564,20 +2476,12 @@ do_exec2(drm_intel_bo *bo, int used, drm_intel_context *ctx,
 
 	pthread_mutex_lock(&bufmgr_gem->lock);
 	/* Update indices and set up the validate list. */
-	ret = drm_intel_gem_bo_process_reloc2(bo);
-	if (ret != 0) {
-		pthread_mutex_unlock(&bufmgr_gem->lock);
-		return ret;
-	}
+	drm_intel_gem_bo_process_reloc2(bo);
 
 	/* Add the batch buffer to the validation list.  There are no relocations
 	 * pointing to it.
 	 */
-	ret = drm_intel_add_validate_buffer2(bo, 0);
-	if (ret != 0) {
-		pthread_mutex_unlock(&bufmgr_gem->lock);
-		return ret;
-	}
+	drm_intel_add_validate_buffer2(bo, 0);
 
 	VG_CLEAR(execbuf);
 	execbuf.buffers_ptr = (uintptr_t)bufmgr_gem->exec2_objects;
