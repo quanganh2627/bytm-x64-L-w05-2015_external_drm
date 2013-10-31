@@ -101,6 +101,15 @@ typedef struct _drm_intel_aub_annotation {
 	uint32_t ending_offset;
 } drm_intel_aub_annotation;
 
+typedef struct _drm_intel_reset_stats {
+	/* For all contexts */
+	uint32_t reset_count;
+
+	/* For this context */
+	uint32_t batch_active;
+	uint32_t batch_pending;
+} drm_intel_reset_stats;
+
 #define BO_ALLOC_FOR_RENDER (1<<0)
 
 drm_intel_bo *drm_intel_bo_alloc(drm_intel_bufmgr *bufmgr, const char *name,
@@ -265,6 +274,9 @@ void drm_intel_decode(struct drm_intel_decode *ctx);
 int drm_intel_reg_read(drm_intel_bufmgr *bufmgr,
 		       uint32_t offset,
 		       uint64_t *result);
+
+int drm_intel_gem_context_get_reset_stats(drm_intel_context *ctx,
+					   drm_intel_reset_stats *stats);
 
 /** @{ Compatibility defines to keep old code building despite the symbol rename
  * from dri_* to drm_intel_*
