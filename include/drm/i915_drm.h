@@ -795,8 +795,6 @@ struct drm_i915_gem_execbuffer2 {
 /** Resets the SO write offset registers for transform feedback on gen7. */
 #define I915_EXEC_GEN7_SOL_RESET	(1<<8)
 
-/* Enable watchdog timeout detection for an individual batch buffer */
-#define I915_EXEC_ENABLE_WATCHDOG       (1<<9)
 
 /* Caller supplies a sync fence fd in the rsvd2 field.
 * Wait for it to be signalled before starting the work*/
@@ -805,6 +803,9 @@ struct drm_i915_gem_execbuffer2 {
 /* Caller wants a sync fence fd for this execbuffer.
 *  It will be returned in rsvd2 */
 #define I915_EXEC_REQUEST_FENCE		(1<<11)
+
+/* Enable watchdog timer for this batch buffer */
+#define I915_EXEC_ENABLE_WATCHDOG       (1<<15)
 
 
 #define I915_EXEC_CONTEXT_ID_MASK	(0xffffffff)
