@@ -798,11 +798,11 @@ struct drm_i915_gem_execbuffer2 {
 
 /* Caller supplies a sync fence fd in the rsvd2 field.
 * Wait for it to be signalled before starting the work*/
-#define I915_EXEC_WAIT_FENCE		(1<<10)
+#define I915_EXEC_WAIT_FENCE		(1<<13)
 
 /* Caller wants a sync fence fd for this execbuffer.
 *  It will be returned in rsvd2 */
-#define I915_EXEC_REQUEST_FENCE		(1<<11)
+#define I915_EXEC_REQUEST_FENCE		(1<<14)
 
 /* Enable watchdog timer for this batch buffer */
 #define I915_EXEC_ENABLE_WATCHDOG       (1<<15)
