@@ -2638,7 +2638,7 @@ do_exec2(drm_intel_bo *bo, int used, drm_intel_context *ctx,
 		}
 	}
 
-	if ((fence_out != NULL) && ((int)execbuf.rsvd2 != fence_in))
+	if (fence_out != NULL)
 		*fence_out = (int)execbuf.rsvd2;
 
 	drm_intel_update_buffer_offsets2(bufmgr_gem);
