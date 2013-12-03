@@ -102,6 +102,8 @@ extern "C" {
 #define DRM_MODE_DPMS_STANDBY   1
 #define DRM_MODE_DPMS_SUSPEND   2
 #define DRM_MODE_DPMS_OFF       3
+#define DRM_MODE_DPMS_ASYNC_ON	4
+#define DRM_MODE_DPMS_ASYNC_OFF	5
 
 /* Scaling mode options */
 #define DRM_MODE_SCALE_NON_GPU          0
