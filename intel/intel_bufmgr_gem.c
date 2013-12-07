@@ -685,14 +685,6 @@ drm_intel_gem_bo_alloc_internal(drm_intel_bufmgr *bufmgr,
 	bool alloc_from_cache;
 	bool for_render = false;
 
-	/* XXX: Workaround for BO allocation requests of size 0 from DXVA
-	 *      driver; ensure these are successfully allocated. This should
-	 *      be removed when the UFO driver is fixed. */
-	if (size == 0)
-	{
-	    size = 1;
-	}
-
 	if (flags & BO_ALLOC_FOR_RENDER)
 		for_render = true;
 
