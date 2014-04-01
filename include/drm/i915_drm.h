@@ -417,8 +417,11 @@ struct drm_i915_edp_psr_ctl {
 #define I915_PARAM_HAS_ALIASING_PPGTT	 18
 #define I915_PARAM_HAS_WAIT_TIMEOUT	 19
 #define I915_PARAM_HAS_VMAP		 21
-#define I915_PARAM_DPST_ACTIVE		 22
+#define I915_PARAM_HAS_VEBOX		 22
 #define I915_PARAM_HAS_CMD_PARSER	 29
+
+/* Out of date parameter that is being phased out. */
+#define I915_PARAM_DPST_ACTIVE		 0xbad
 
 typedef struct drm_i915_getparam {
 	int param;
@@ -779,6 +782,7 @@ struct drm_i915_gem_execbuffer2 {
 #define I915_EXEC_RENDER                 (1<<0)
 #define I915_EXEC_BSD                    (2<<0)
 #define I915_EXEC_BLT                    (3<<0)
+#define I915_EXEC_VEBOX                  (4<<0)
 #define I915_EXEC_RS                     (8<<0)
 
 /* Used for switching the constants addressing mode on gen4+ RENDER ring.
@@ -799,6 +803,31 @@ struct drm_i915_gem_execbuffer2 {
 /** Resets the SO write offset registers for transform feedback on gen7. */
 #define I915_EXEC_GEN7_SOL_RESET	(1<<8)
 
+/** Request a privileged ("secure") batch buffer. Note only available for
+ * DRM_ROOT_ONLY | DRM_MASTER processes.
+ */
+#define I915_EXEC_SECURE		(1<<9)
+
+/** Inform the kernel that the batch is and will always be pinned. This
+ * negates the requirement for a workaround to be performed to avoid
+ * an incoherent CS (such as can be found on 830/845). If this flag is
+ * not passed, the kernel will endeavour to make sure the batch is
+ * coherent with the CS before execution. If this flag is passed,
+ * userspace assumes the responsibility for ensuring the same.
+ */
+#define I915_EXEC_IS_PINNED		(1<<10)
+
+/** Provide a hint to the kernel that the command stream and auxilliary
+ * state buffers already holds the correct presumed addresses and so the
+ * relocation process may be skipped if no buffers need to be moved in
+ * preparation for the execbuffer.
+ */
+#define I915_EXEC_NO_RELOC		(1<<11)
+
+/** Use the reloc.handle as an index into the exec object array rather
+ * than as the per-file handle.
+ */
+#define I915_EXEC_HANDLE_LUT		(1<<12)
 
 /* Caller supplies a sync fence fd in the rsvd2 field.
 * Wait for it to be signalled before starting the work*/

@@ -123,6 +123,7 @@ typedef struct _drm_intel_bufmgr_gem {
 	unsigned int has_wait_timeout : 1;
 	unsigned int bo_reuse : 1;
 	unsigned int no_exec : 1;
+	unsigned int has_vebox : 1;
 	bool fenced_relocs;
 
 	FILE *aub_file;
@@ -2316,12 +2317,14 @@ aub_write_trace_block(drm_intel_bo *bo, uint32_t type, uint32_t subtype,
 
 	aub_out(bufmgr_gem,
 		CMD_AUB_TRACE_HEADER_BLOCK |
-		(5 - 2));
+		((bufmgr_gem->gen >= 8 ? 6 : 5) - 2));
 	aub_out(bufmgr_gem,
 		AUB_TRACE_MEMTYPE_GTT | type | AUB_TRACE_OP_DATA_WRITE);
 	aub_out(bufmgr_gem, subtype);
 	aub_out(bufmgr_gem, bo_gem->aub_offset + offset);
 	aub_out(bufmgr_gem, size);
+	if (bufmgr_gem->gen >= 8)
+		aub_out(bufmgr_gem, 0);
 	aub_write_bo_data(bo, offset, size);
 }
 
@@ -2396,20 +2399,28 @@ aub_build_dump_ringbuffer(drm_intel_bufmgr_gem *bufmgr_gem,
 
 	/* Make a ring buffer to execute our batchbuffer. */
 	memset(ringbuffer, 0, sizeof(ringbuffer));
-	ringbuffer[ring_count++] = AUB_MI_BATCH_BUFFER_START;
-	ringbuffer[ring_count++] = batch_buffer;
+	if (bufmgr_gem->gen >= 8) {
+		ringbuffer[ring_count++] = AUB_MI_BATCH_BUFFER_START | (3 - 2);
+		ringbuffer[ring_count++] = batch_buffer;
+		ringbuffer[ring_count++] = 0;
+	} else {
+		ringbuffer[ring_count++] = AUB_MI_BATCH_BUFFER_START;
+		ringbuffer[ring_count++] = batch_buffer;
+	}
 
 	/* Write out the ring.  This appears to trigger execution of
 	 * the ring in the simulator.
 	 */
 	aub_out(bufmgr_gem,
 		CMD_AUB_TRACE_HEADER_BLOCK |
-		(5 - 2));
+		((bufmgr_gem->gen >= 8 ? 6 : 5) - 2));
 	aub_out(bufmgr_gem,
 		AUB_TRACE_MEMTYPE_GTT | ring | AUB_TRACE_OP_COMMAND_WRITE);
 	aub_out(bufmgr_gem, 0); /* general/surface subtype */
 	aub_out(bufmgr_gem, bufmgr_gem->aub_offset);
 	aub_out(bufmgr_gem, ring_count * 4);
+	if (bufmgr_gem->gen >= 8)
+		aub_out(bufmgr_gem, 0);
 
 	/* FIXME: Need some flush operations here? */
 	aub_out_data(bufmgr_gem, ringbuffer, ring_count * 4);
@@ -2591,6 +2602,10 @@ do_exec2(drm_intel_bo *bo, int used, drm_intel_context *ctx,
 		break;
 	case I915_EXEC_BSD:
 		if (!bufmgr_gem->has_bsd)
+			return -EINVAL;
+		break;
+	case I915_EXEC_VEBOX:
+		if (!bufmgr_gem->has_vebox)
 			return -EINVAL;
 		break;
 	case I915_EXEC_RENDER:
@@ -3391,11 +3406,13 @@ drm_intel_bufmgr_gem_set_aub_dump(drm_intel_bufmgr *bufmgr, int enable)
 	aub_out(bufmgr_gem, 0); /* comment len */
 
 	/* Set up the GTT. The max we can handle is 256M */
-	aub_out(bufmgr_gem, CMD_AUB_TRACE_HEADER_BLOCK | (5 - 2));
+	aub_out(bufmgr_gem, CMD_AUB_TRACE_HEADER_BLOCK | ((bufmgr_gem->gen >= 8 ? 6 : 5) - 2));
 	aub_out(bufmgr_gem, AUB_TRACE_MEMTYPE_NONLOCAL | 0 | AUB_TRACE_OP_DATA_WRITE);
 	aub_out(bufmgr_gem, 0); /* subtype */
 	aub_out(bufmgr_gem, 0); /* offset */
 	aub_out(bufmgr_gem, gtt_size); /* size */
+	if (bufmgr_gem->gen >= 8)
+		aub_out(bufmgr_gem, 0);
 	for (i = 0x000; i < gtt_size; i += 4, entry += 0x1000) {
 		aub_out(bufmgr_gem, entry);
 	}
@@ -3600,6 +3617,8 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 		bufmgr_gem->gen = 6;
 	else if (IS_GEN7(bufmgr_gem->pci_device))
 		bufmgr_gem->gen = 7;
+	else if (IS_GEN8(bufmgr_gem->pci_device))
+		bufmgr_gem->gen = 8;
 	else {
 		free(bufmgr_gem);
 		bufmgr_gem = NULL;
@@ -3656,6 +3675,10 @@ drm_intel_bufmgr_gem_init(int fd, int batch_size)
 				IS_GEN7(bufmgr_gem->pci_device));
 	} else
 		bufmgr_gem->has_llc = ret == 0;
+
+	gp.param = I915_PARAM_HAS_VEBOX;
+	ret = drmIoctl(bufmgr_gem->fd, DRM_IOCTL_I915_GETPARAM, &gp);
+	bufmgr_gem->has_vebox = (ret == 0) & (*gp.value > 0);
 
 	if (bufmgr_gem->gen < 4) {
 		gp.param = I915_PARAM_NUM_FENCES_AVAIL;
