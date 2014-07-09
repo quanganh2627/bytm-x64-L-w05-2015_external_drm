@@ -288,6 +288,12 @@ int drmModeRmFB(int fd, uint32_t bufferId)
 
 
 }
+int drmModeWidiInfo(int fd, uint32_t info)
+{
+	return DRM_IOCTL(fd, DRM_IOCTL_MODE_WIDI_INFO, &info);
+
+
+}
 
 drmModeFBPtr drmModeGetFB(int fd, uint32_t buf)
 {

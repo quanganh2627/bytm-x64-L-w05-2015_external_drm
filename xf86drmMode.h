@@ -356,6 +356,7 @@ extern int drmModeRmFB(int fd, uint32_t bufferId);
 extern int drmModeDirtyFB(int fd, uint32_t bufferId,
 			  drmModeClipPtr clips, uint32_t num_clips);
 
+extern int drmModeWidiInfo(int fd, uint32_t info);
 
 /*
  * Crtc functions
