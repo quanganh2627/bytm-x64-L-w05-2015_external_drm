@@ -80,6 +80,8 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#define PAGE_SHIFT 12 /* Constant used by mmap2 */
+
 typedef struct _drm_intel_bo_gem drm_intel_bo_gem;
 
 struct drm_intel_gem_bo_bucket {
