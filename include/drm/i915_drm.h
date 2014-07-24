@@ -60,7 +60,6 @@
 #define DRM_LETTERBOX    3
 
 #define DRM_PFIT_PROP "pfit"
-#define DRM_SCALING_SRC_SIZE_PROP "scaling_src_size"
 #define DRM_PRIMARY_DISABLE 1
 
 #define PLANE_A		1
