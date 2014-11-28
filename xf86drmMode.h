@@ -207,7 +207,6 @@ typedef struct _drmModeModeInfo {
 
 	uint32_t flags;
 	uint32_t type;
-	uint32_t picture_aspect_ratio;
 	char name[DRM_DISPLAY_MODE_LEN];
 } drmModeModeInfo, *drmModeModeInfoPtr;
 

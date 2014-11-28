@@ -92,16 +92,6 @@
 #define DRM_MODE_DIRTY_ON       1
 #define DRM_MODE_DIRTY_ANNOTATE 2
 
-/* Todo: This flag is temporarily added to provide a quick check
-for HWC, remove this as soon as the changes are merged */
-#define DRM_PICTURE_ASPECT_RATIO 1
-
-enum hdmi_picture_aspect {
-	HDMI_PICTURE_ASPECT_NONE,
-	HDMI_PICTURE_ASPECT_4_3,
-	HDMI_PICTURE_ASPECT_16_9,
-};
-
 struct drm_mode_modeinfo {
 	__u32 clock;
 	__u16 hdisplay, hsync_start, hsync_end, htotal, hskew;
@@ -111,7 +101,6 @@ struct drm_mode_modeinfo {
 
 	__u32 flags;
 	__u32 type;
-	__u32 picture_aspect_ratio;
 	char name[DRM_DISPLAY_MODE_LEN];
 };
 
